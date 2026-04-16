@@ -4,19 +4,19 @@
    ============================================================ */
 
 // ============================================================
-//  1. CONFIGURAZIONE — sostituire con i propri valori Supabase
+//  1. CONFIGURAZIONE
 // ============================================================
-const SUPABASE_URL      = 'https://bclfpawguqpwypahmzbk.supabase.co'; // <-- tuo URL
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjbGZwYXdndXFwd3lwYWhtemJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyOTI1NjQsImV4cCI6MjA5MTg2ODU2NH0.ONgZu-n7oWJaQJ7V6P3MOpBD9eUYA0YimGDHyi7DLcI'; // <-- tua anon key
+const SUPABASE_URL      = 'https://bclfpawguqpwypahmzbk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjbGZwYXdndXFwd3lwYWhtemJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyOTI1NjQsImV4cCI6MjA5MTg2ODU2NH0.ONgZu-n7oWJaQJ7V6P3MOpBD9eUYA0YimGDHyi7DLcI';
 
 // ============================================================
-//  2. CHECKLIST NORMATIVE (dati statici — aggiornare secondo UNI vigenti)
+//  2. CHECKLIST NORMATIVE
 // ============================================================
 const CHECKLISTS = {
   estintori: [
-    { id:'est_01', desc:'Verifica accessibilità e segnaletica di posizionamento',  norm:'D.Lgs 81/2008 · Art.46', freq:'semestrale' },
-    { id:'est_02', desc:'Ispezione integrità corpo, manometro e ugello',           norm:'UNI 9994-1 · Tab.1',    freq:'semestrale' },
-    { id:'est_03', desc:'Verifica carica (peso per polvere, pressione per CO₂)',   norm:'UNI 9994-1 · p.5.1.2', freq:'semestrale' },
+    { id:'est_01', desc:'Verifica accessibilita e segnaletica di posizionamento',  norm:'D.Lgs 81/2008 · Art.46', freq:'semestrale' },
+    { id:'est_02', desc:'Ispezione integrita corpo, manometro e ugello',           norm:'UNI 9994-1 · Tab.1',    freq:'semestrale' },
+    { id:'est_03', desc:'Verifica carica (peso per polvere, pressione per CO2)',   norm:'UNI 9994-1 · p.5.1.2', freq:'semestrale' },
     { id:'est_04', desc:'Controllo valvola di erogazione e leva',                  norm:'UNI 9994-1 · p.5.1.3', freq:'semestrale' },
     { id:'est_05', desc:'Verifica sigillo e spilla di sicurezza integri',           norm:'UNI 9994-1 · p.5.1.4', freq:'semestrale' },
     { id:'est_06', desc:'Ispezione cartellino di manutenzione e data scadenza',    norm:'UNI 9994-1 · p.4.2',   freq:'semestrale' },
@@ -37,46 +37,39 @@ const CHECKLISTS = {
     { id:'irai_03', desc:'Test pulsanti di allarme manuale (PAM)',                             norm:'UNI 9795 · p.12.3 · UNI EN 54-11', freq:'semestrale' },
     { id:'irai_04', desc:'Verifica segnalatori ottici e acustici di allarme',                  norm:'UNI 9795 · p.12.4',                freq:'semestrale' },
     { id:'irai_05', desc:'Controllo alimentazione principale e batterie di riserva',           norm:'UNI 9795 · p.12.5 · UNI EN 54-4',  freq:'semestrale' },
-    { id:'irai_06', desc:'Verifica isolatori di linea e integrità cablaggio',                  norm:'UNI 9795 · p.12.6',                freq:'semestrale' },
+    { id:'irai_06', desc:'Verifica isolatori di linea e integrita cablaggio',                  norm:'UNI 9795 · p.12.6',                freq:'semestrale' },
     { id:'irai_07', desc:'Controllo interfacce con EVAC, sprinkler e porte tagliafuoco',       norm:'UNI 9795 · p.12.7',                freq:'semestrale' },
     { id:'irai_08', desc:'Verifica libro log: falsi allarmi, guasti, manutenzioni',            norm:'UNI 9795 · p.12.8',                freq:'semestrale' },
   ],
   evac: [
-    { id:'evac_01', desc:'Verifica centrale EVAC e alimentazioni (rete + batteria)',                norm:'UNI EN 54-16 · p.6.1 · UNI ISO 7240-19', freq:'mensile'    },
-    { id:'evac_02', desc:'Test messaggi preregistrati di evacuazione zona per zona',               norm:'UNI EN 54-16 · p.6.2',                   freq:'mensile'    },
-    { id:'evac_03', desc:'Verifica amplificatori e livelli di uscita (dBSPL)',                     norm:'UNI EN 54-16 · p.6.3',                   freq:'semestrale' },
-    { id:'evac_04', desc:'Test microfono di emergenza e priorità messaggi',                        norm:'UNI EN 54-16 · p.6.4',                   freq:'semestrale' },
-    { id:'evac_05', desc:'Misura intelligibilità del parlato STI/RASTI per zona (soglia >= 0.50)', norm:'UNI EN 54-16 · p.7',                     freq:'annuale'    },
-    { id:'evac_06', desc:'Verifica diffusori: integrità fisica e copertura acustica',              norm:'UNI ISO 7240-19 · p.8.1',                freq:'semestrale' },
-    { id:'evac_07', desc:'Controllo segnalazione guasti alla centrale',                            norm:'UNI EN 54-16 · p.6.5',                   freq:'semestrale' },
-    { id:'evac_08', desc:'Verifica autonomia batterie (min 24h standby + 30min allarme)',          norm:'UNI EN 54-16 · p.6.6',                   freq:'semestrale' },
+    { id:'evac_01', desc:'Verifica centrale EVAC e alimentazioni (rete + batteria)',            norm:'UNI EN 54-16 · p.6.1 · UNI ISO 7240-19', freq:'mensile'    },
+    { id:'evac_02', desc:'Test messaggi preregistrati di evacuazione zona per zona',            norm:'UNI EN 54-16 · p.6.2',                   freq:'mensile'    },
+    { id:'evac_03', desc:'Verifica amplificatori e livelli di uscita (dBSPL)',                  norm:'UNI EN 54-16 · p.6.3',                   freq:'semestrale' },
+    { id:'evac_04', desc:'Test microfono di emergenza e priorita messaggi',                     norm:'UNI EN 54-16 · p.6.4',                   freq:'semestrale' },
+    { id:'evac_05', desc:'Misura intelligibilita del parlato STI/RASTI per zona (soglia >= 0.50)', norm:'UNI EN 54-16 · p.7',                 freq:'annuale'    },
+    { id:'evac_06', desc:'Verifica diffusori: integrita fisica e copertura acustica',           norm:'UNI ISO 7240-19 · p.8.1',                freq:'semestrale' },
+    { id:'evac_07', desc:'Controllo segnalazione guasti alla centrale',                         norm:'UNI EN 54-16 · p.6.5',                   freq:'semestrale' },
+    { id:'evac_08', desc:'Verifica autonomia batterie (min 24h standby + 30min allarme)',       norm:'UNI EN 54-16 · p.6.6',                   freq:'semestrale' },
   ],
-
-  // ── PRESA IN CONSEGNA (P1) — UNI 11224:2011 ──────────────────────────────
-  // Attivata quando tipo intervento = 'p1'
-  // Verifica documentazione e congruenza impianto IRAI con il progetto
   p1_irai: [
-    // -- DOCUMENTAZIONE --
     { id:'p1_01', desc:'Acquisizione e verifica progetto esecutivo impianto IRAI (planimetrie, schema a blocchi, relazione tecnica)', norm:'UNI 11224:2011 · p.5.2.1 · D.M. 1/9/2021', freq:'p1' },
-    { id:'p1_02', desc:'Verifica Dichiarazione di Conformità (Di.Co.) ai sensi del D.M. 37/2008 con allegati tecnici', norm:'D.M. 37/2008 · art.7 · UNI 11224:2011 · p.5.2.2', freq:'p1' },
+    { id:'p1_02', desc:'Verifica Dichiarazione di Conformita (Di.Co.) ai sensi del D.M. 37/2008 con allegati tecnici', norm:'D.M. 37/2008 · art.7 · UNI 11224:2011 · p.5.2.2', freq:'p1' },
     { id:'p1_03', desc:'Verifica certificazioni CE dei componenti (centrale, rivelatori, PAM, segnalatori) secondo UNI EN 54', norm:'UNI EN 54 · UNI 11224:2011 · p.5.2.3', freq:'p1' },
     { id:'p1_04', desc:'Acquisizione manuale di uso e manutenzione della centrale IRAI e dei componenti principali', norm:'UNI 11224:2011 · p.5.2.4 · UNI EN 54-2', freq:'p1' },
     { id:'p1_05', desc:'Verifica registro dei controlli precedenti (log storico manutenzioni, falsi allarmi, guasti)', norm:'UNI 9795 · p.12.8 · UNI 11224:2011 · p.5.2.5', freq:'p1' },
-    { id:'p1_06', desc:'Acquisizione verbale di collaudo iniziale o di primo funzionamento firmato dall\'installatore', norm:'UNI 11224:2011 · p.5.2.6', freq:'p1' },
-    // -- CONGRUENZA IMPIANTO CON PROGETTO --
-    { id:'p1_07', desc:'Verifica corrispondenza numero e tipologia rivelatori installati vs progetto (fumo, calore, fiamma)', norm:'UNI 9795 · p.5 · UNI 11224:2011 · p.5.3.1', freq:'p1' },
+    { id:'p1_06', desc:'Acquisizione verbale di collaudo iniziale o di primo funzionamento firmato dall installatore', norm:'UNI 11224:2011 · p.5.2.6', freq:'p1' },
+    { id:'p1_07', desc:'Verifica corrispondenza numero e tipologia rivelatori installati vs progetto', norm:'UNI 9795 · p.5 · UNI 11224:2011 · p.5.3.1', freq:'p1' },
     { id:'p1_08', desc:'Verifica posizionamento rivelatori: altezze, interdistanze e coperture conforme a UNI 9795', norm:'UNI 9795 · p.5.4 · UNI 11224:2011 · p.5.3.2', freq:'p1' },
-    { id:'p1_09', desc:'Verifica numero e posizionamento PAM (Pulsanti Allarme Manuale) rispetto al progetto', norm:'UNI 9795 · p.5.6 · UNI 11224:2011 · p.5.3.3', freq:'p1' },
+    { id:'p1_09', desc:'Verifica numero e posizionamento PAM rispetto al progetto', norm:'UNI 9795 · p.5.6 · UNI 11224:2011 · p.5.3.3', freq:'p1' },
     { id:'p1_10', desc:'Verifica suddivisione in zone di rivelazione rispetto a planimetrie di progetto', norm:'UNI 9795 · p.5.2 · UNI 11224:2011 · p.5.3.4', freq:'p1' },
-    { id:'p1_11', desc:'Verifica centrale: modello, capacità linee, firmware e corrispondenza con progetto', norm:'UNI EN 54-2 · UNI 11224:2011 · p.5.3.5', freq:'p1' },
+    { id:'p1_11', desc:'Verifica centrale: modello, capacita linee, firmware e corrispondenza con progetto', norm:'UNI EN 54-2 · UNI 11224:2011 · p.5.3.5', freq:'p1' },
     { id:'p1_12', desc:'Verifica cablaggio: tipo di linea (singola/ad anello), sezione cavi, segregazione percorsi', norm:'UNI 9795 · p.6 · UNI 11224:2011 · p.5.3.6', freq:'p1' },
-    { id:'p1_13', desc:'Verifica interfacce di comando: sgancio porte REI, spegnimento impianti HVAC, attivazione EVAC', norm:'UNI 9795 · p.5.9 · UNI 11224:2011 · p.5.3.7', freq:'p1' },
+    { id:'p1_13', desc:'Verifica interfacce di comando: sgancio porte REI, spegnimento HVAC, attivazione EVAC', norm:'UNI 9795 · p.5.9 · UNI 11224:2011 · p.5.3.7', freq:'p1' },
     { id:'p1_14', desc:'Test funzionale completo: simulazione allarme zona per zona, verifica attuatori e temporizzazioni', norm:'UNI 9795 · p.12 · UNI 11224:2011 · p.5.4', freq:'p1' },
     { id:'p1_15', desc:'Compilazione verbale di presa in consegna con riserve (se presenti) e firma del responsabile', norm:'UNI 11224:2011 · p.6 · D.M. 1/9/2021', freq:'p1' },
   ],
 };
 
-// Mesi (in mesi) per ogni frequenza
 const FREQ_MONTHS = {
   mensile: 1, bimestrale: 2, trimestrale: 3,
   semestrale: 6, annuale: 12, biennale: 24,
@@ -99,8 +92,9 @@ let state = {
   clients: [],
   currentClientId: null,
   currentInterventionId: null,
+  currentInterventionType: null,
   currentTab: 'estintori',
-  checklistResponses: {},  // { item_id: { status, note } }
+  checklistResponses: {},
   scadenze: [],
   filter: 'all',
 };
@@ -109,19 +103,13 @@ let state = {
 //  5. INIT & AUTH
 // ============================================================
 async function init() {
-  // Registra service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(console.warn);
   }
-
-  // Gestione URL params (shortcut manifest)
   const params = new URLSearchParams(location.search);
   if (params.get('action') === 'new-intervention') {
-    // Apre modale nuovo intervento dopo login
     window._pendingAction = 'new-intervention';
   }
-
-  // Ascolta cambio stato auth
   db.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
       state.user = session.user;
@@ -140,12 +128,9 @@ async function loadProfile() {
     .select('*, organizations(*)')
     .eq('id', state.user.id)
     .single();
-
   if (error || !data) return;
   state.profile = data;
   state.org = data.organizations;
-
-  // Aggiorna badge utente
   const badge = el('user-badge');
   if (badge && data.full_name) {
     badge.textContent = data.full_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
@@ -160,25 +145,21 @@ function showLogin() {
 function showApp() {
   el('page-login').style.display = 'none';
   el('app').classList.remove('hidden');
-
   if (window._pendingAction === 'new-intervention') {
     window._pendingAction = null;
     setTimeout(showNewInterventionModal, 500);
   }
 }
 
-// Form di login
 el('form-login')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const email    = el('input-email').value.trim();
   const password = el('input-password').value;
   const errEl    = el('login-error');
   const btn      = el('btn-login');
-
   btn.disabled = true;
-  btn.textContent = 'Accesso in corso…';
+  btn.textContent = 'Accesso in corso...';
   errEl.textContent = '';
-
   const { error } = await db.auth.signInWithPassword({ email, password });
   if (error) {
     errEl.textContent = 'Email o password errati. Riprovare.';
@@ -187,7 +168,6 @@ el('form-login')?.addEventListener('submit', async (e) => {
   }
 });
 
-// Logout (click sull'avatar)
 el('user-badge')?.addEventListener('click', () => {
   showModal(`
     <div class="modal-handle"></div>
@@ -209,38 +189,29 @@ async function signOut() {
 //  6. NAVIGATION
 // ============================================================
 const SCREEN_TITLES = {
-  dashboard:    'Dashboard',
-  clienti:      'Clienti',
-  intervento:   'Intervento',
-  scadenzario:  'Scadenzario',
-  verbali:      'Verbali',
+  dashboard:   'Dashboard',
+  clienti:     'Clienti',
+  intervento:  'Intervento',
+  scadenzario: 'Scadenzario',
+  verbali:     'Verbali',
 };
 
 function navigate(screen) {
-  // Nascondi tutte le screen
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
   const target = el('screen-' + screen);
   if (target) target.classList.add('active');
-
   const navItem = document.querySelector(`.nav-item[data-screen="${screen}"]`);
   if (navItem) navItem.classList.add('active');
-
-  // Titolo topbar
   el('topbar-title').textContent = SCREEN_TITLES[screen] || '';
   el('topbar-subtitle').textContent = '';
   el('btn-back').classList.add('hidden');
-
-  // Carica dati specifici
   if (screen === 'clienti')     loadClienti();
   if (screen === 'scadenzario') loadScadenzario();
   if (screen === 'verbali')     loadVerbali();
 }
 
-function goBack() {
-  navigate('dashboard');
-}
+function goBack() { navigate('dashboard'); }
 
 // ============================================================
 //  7. DASHBOARD
@@ -260,26 +231,16 @@ async function loadDashboard() {
       db.from('anomalies').select('*').eq('resolved', false).in('client_id', await getOrgClientIds()),
       db.from('clients').select('*', { count: 'exact', head: true }).eq('organization_id', state.org?.id),
     ]);
-
-    // KPI
-    el('kpi-oggi').textContent    = todayInterv?.length ?? 0;
+    el('kpi-oggi').textContent     = todayInterv?.length ?? 0;
     el('kpi-scadenze').textContent = scadenze?.length ?? 0;
     el('kpi-anomalie').textContent = anomalies?.length ?? 0;
     el('kpi-clienti').textContent  = clientiCount ?? 0;
-
-    // Greeting
     const h = new Date().getHours();
     const greeting = h < 12 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera';
     el('greeting').textContent = `${greeting}${state.profile?.full_name ? ', ' + state.profile.full_name.split(' ')[0] : ''}`;
-
-    // Alert scadenze e anomalie
     renderDashboardAlerts(scadenze, anomalies);
-
-    // Interventi di oggi
     renderTodayInterventions(todayInterv || []);
-
     state.clients = await fetchClients();
-
   } catch (err) {
     console.error('Dashboard error:', err);
     showToast('Errore nel caricamento dati', 'error');
@@ -291,20 +252,14 @@ async function loadDashboard() {
 function renderDashboardAlerts(scadenze, anomalies) {
   const cont = el('alerts-container');
   cont.innerHTML = '';
-
-  // Scadenze critiche (scadute)
   const overdue = (scadenze || []).filter(s => s.next_date < new Date().toISOString().split('T')[0]);
   if (overdue.length > 0) {
-    cont.innerHTML += `<div class="alert alert-red"><strong>Manutenzioni scadute (${overdue.length})</strong>${overdue.slice(0,2).map(s => `${s.equipment_type} — ${s.client_id}`).join(', ')}</div>`;
+    cont.innerHTML += `<div class="alert alert-red"><strong>Manutenzioni scadute (${overdue.length})</strong></div>`;
   }
-
-  // Anomalie aperte
   const critical = (anomalies || []).filter(a => a.severity === 'critical' || a.severity === 'high');
   if (critical.length > 0) {
     cont.innerHTML += `<div class="alert alert-purple"><strong>Anomalie aperte urgenti (${critical.length})</strong>Richiedono intervento tempestivo</div>`;
   }
-
-  // Scadenze imminenti (entro 7 gg)
   const soon = (scadenze || []).filter(s => {
     const diff = daysBetween(new Date().toISOString().split('T')[0], s.next_date);
     return diff >= 0 && diff <= 7;
@@ -323,7 +278,6 @@ function renderTodayInterventions(interventions) {
     </div>`;
     return;
   }
-
   cont.innerHTML = interventions.map(inv => {
     const badge = statusBadge(inv.status);
     const tags  = (inv.equipment_types || []).map(t => `<span class="badge badge-blue">${t}</span>`).join('');
@@ -364,9 +318,7 @@ function renderClienti(clients) {
     </div>`;
     return;
   }
-
-  const grouped = clients;
-  cont.innerHTML = `<div class="row-list">${grouped.map(c => {
+  cont.innerHTML = `<div class="row-list">${clients.map(c => {
     const icon = categoryIcon(c.category);
     return `<div class="row-item" onclick="openClient('${c.id}')">
       <div class="row-icon" style="background:${icon.bg}">${icon.svg}</div>
@@ -394,19 +346,18 @@ async function openClient(clientId) {
   const client = state.clients.find(c => c.id === clientId);
   if (!client) return;
 
-  // Carica impianti e ultimi interventi
   const [{ data: equip }, { data: lastInterv }] = await Promise.all([
     db.from('equipment').select('*').eq('client_id', clientId),
     db.from('interventions').select('*').eq('client_id', clientId).order('date', { ascending: false }).limit(5),
   ]);
 
   const equipTags = (equip || []).map(e => {
-    // P6: evidenzia in rosso componenti con > 12 anni dalla data installazione
-    const isP6 = e.installation_date && isOlderThan(e.installation_date, 12);
+    const isP6   = e.installation_date && isOlderThan(e.installation_date, 12);
     const tagCls = isP6 ? 'badge badge-red' : 'badge badge-blue';
-    const p6Warn = isP6 ? ' ⚠ Rev. P6' : '';
-    return `<span class="${tagCls}" title="${isP6 ? 'Revisione P6 scaduta — installazione: '+formatDate(e.installation_date) : ''}">${e.type} (${e.quantity})${p6Warn}</span>`;
+    const p6Warn = isP6 ? ' - Rev. P6 scaduta' : '';
+    return `<span class="${tagCls}">${e.type} (${e.quantity})${p6Warn}</span>`;
   }).join('');
+
   const intervList = (lastInterv || []).map(i => `
     <div class="row-item" onclick="openIntervention('${i.id}')">
       <div class="row-body">
@@ -434,7 +385,7 @@ function showAddClientModal() {
     <div class="modal-title">Nuovo cliente</div>
     <div class="form-field"><label>Ragione sociale *</label><input id="f-name" placeholder="Es. Supermercato Rossi Srl"></div>
     <div class="form-field"><label>Indirizzo</label><input id="f-address" placeholder="Via Roma 1"></div>
-    <div class="form-field"><label>Città</label><input id="f-city" placeholder="Pescara"></div>
+    <div class="form-field"><label>Citta</label><input id="f-city" placeholder="Pescara"></div>
     <div class="form-field"><label>Telefono</label><input type="tel" id="f-phone" placeholder="+39 085 000000"></div>
     <div class="form-field"><label>Email</label><input type="email" id="f-email" placeholder="info@cliente.it"></div>
     <div class="form-field"><label>Categoria</label>
@@ -454,8 +405,7 @@ function showAddClientModal() {
 
 async function saveNewClient() {
   const name = el('f-name')?.value.trim();
-  if (!name) { showToast('Il nome è obbligatorio', 'error'); return; }
-
+  if (!name) { showToast('Il nome e obbligatorio', 'error'); return; }
   showLoading(true);
   const { error } = await db.from('clients').insert({
     organization_id: state.org.id,
@@ -467,7 +417,6 @@ async function saveNewClient() {
     category: el('f-cat')?.value || 'commerciale',
   });
   showLoading(false);
-
   if (error) { showToast('Errore nel salvataggio', 'error'); return; }
   closeModal();
   showToast('Cliente aggiunto', 'success');
@@ -526,10 +475,7 @@ async function createIntervention() {
   if (!checked.length)     { showToast('Selezionare almeno un impianto', 'error'); return; }
 
   showLoading(true);
-
-  // Genera numero verbale
   const { data: reportNum } = await db.rpc('generate_report_number', { org_id: state.org.id });
-
   const { data, error } = await db.from('interventions').insert({
     organization_id: state.org.id,
     client_id:       clientId,
@@ -540,10 +486,8 @@ async function createIntervention() {
     status:          'in_progress',
     report_number:   reportNum,
   }).select().single();
-
   showLoading(false);
   if (error || !data) { showToast('Errore nella creazione', 'error'); return; }
-
   closeModal();
   await openIntervention(data.id);
 }
@@ -553,7 +497,6 @@ async function openIntervention(interventionId) {
   state.currentInterventionId = interventionId;
   state.checklistResponses = {};
 
-  // Carica intervento + risposte esistenti
   const [{ data: inv }, { data: responses }] = await Promise.all([
     db.from('interventions').select('*, clients(name, city, address)').eq('id', interventionId).single(),
     db.from('checklist_responses').select('*').eq('intervention_id', interventionId),
@@ -562,29 +505,23 @@ async function openIntervention(interventionId) {
   showLoading(false);
   if (!inv) return;
 
-  // Salva tipo intervento in state (serve per logica P1)
   state.currentInterventionType = inv.type;
 
-  // Popola state risposte
   (responses || []).forEach(r => {
-    state.checklistResponses[r.item_id] = { status: r.status, note: r.note || '' };
+    state.checklistResponses[r.item_id] = { status: r.status, note: r.note || '', photo_url: r.photo_url || '' };
   });
 
-  // Configura schermata intervento
   navigate('intervento');
-
   el('topbar-title').textContent = inv.clients?.name || 'Intervento';
   el('topbar-subtitle').textContent = `${formatDate(inv.date)} · ${inv.type}`;
   el('btn-back').classList.remove('hidden');
 
-  // Header progress
-  const total   = inv.equipment_types.flatMap(t => CHECKLISTS[t] || []).length;
-  const done    = Object.values(state.checklistResponses).filter(r => r.status !== 'pending').length;
+  const total = inv.equipment_types.flatMap(t => CHECKLISTS[t] || []).length;
+  const done  = Object.values(state.checklistResponses).filter(r => r.status !== 'pending').length;
   el('interv-header-name').textContent = inv.clients?.name || '';
   el('interv-header-date').textContent = `${formatDate(inv.date)} · n. ${inv.report_number}`;
   updateProgress(done, total);
 
-  // Tabs: solo impianti di questo intervento
   const tabs = el('intervento-tabs');
   tabs.innerHTML = inv.equipment_types.map((t, i) =>
     `<button class="tab-btn ${i === 0 ? 'active' : ''}" data-tab="${t}" onclick="switchTab(this,'${t}')">${t.charAt(0).toUpperCase() + t.slice(1).replace('_',' ')}</button>`
@@ -592,8 +529,6 @@ async function openIntervention(interventionId) {
 
   state.currentTab = inv.equipment_types[0];
   renderChecklist(state.currentTab);
-
-  // Mostra pulsante "Completa"
   el('btn-complete-interv').classList.remove('hidden');
 }
 
@@ -605,17 +540,15 @@ function switchTab(el, tab) {
 }
 
 function renderChecklist(tab) {
-  // Per P1: usa checklist p1_irai indipendentemente dal tab selezionato
-  const isP1 = state.currentInterventionType === 'p1';
-  const items = isP1 ? (CHECKLISTS['p1_irai'] || []) : (CHECKLISTS[tab] || []);
+  const isP1    = state.currentInterventionType === 'p1';
+  const items   = isP1 ? (CHECKLISTS['p1_irai'] || []) : (CHECKLISTS[tab] || []);
   const content = document.querySelector('#screen-intervento .checklist-area');
   if (!content) return;
 
-  if (isP1 && items.length && tab !== 'irai') {
-    // P1 mostra solo la checklist irai presa in consegna
-    content.innerHTML = `<div style="background:var(--amber-50);border-left:3px solid var(--amber-400);border-radius:0 var(--radius-md) var(--radius-md) 0;padding:10px 13px;margin-bottom:12px;font-size:13px;color:#78350f">
+  if (isP1 && tab !== 'irai') {
+    content.innerHTML = `<div style="background:#fffbeb;border-left:3px solid #f59e0b;border-radius:0 10px 10px 0;padding:10px 13px;margin-bottom:12px;font-size:13px;color:#78350f">
       <strong>Presa in Consegna (P1) — UNI 11224</strong><br>
-      La checklist P1 si applica all'impianto IRAI. Seleziona la tab IRAI per compilarla.
+      Seleziona la tab IRAI per compilare la checklist P1.
     </div>`;
     return;
   }
@@ -626,8 +559,6 @@ function renderChecklist(tab) {
     const noteVis = r.status === 'anomaly' ? 'visible' : '';
     const freqCls = item.freq === 'p1' ? 'freq-p1' : `freq-${item.freq}`;
     const freqLbl = item.freq === 'p1' ? 'Presa in consegna' : item.freq;
-
-    // Foto allegata se presente
     const photoHtml = r.photo_url
       ? `<div style="margin-top:6px"><img src="${r.photo_url}" style="max-width:100%;border-radius:6px;border:1px solid var(--gray-200)" /></div>`
       : '';
@@ -638,7 +569,7 @@ function renderChecklist(tab) {
         <div class="cl-norm">${item.norm}</div>
         <span class="cl-freq ${freqCls}">${freqLbl}</span>
         <div class="cl-note ${noteVis}" id="note-${item.id}">
-          <textarea rows="2" placeholder="Descrivi l'anomalia riscontrata…"
+          <textarea rows="2" placeholder="Descrivi l anomalia riscontrata..."
             onchange="saveNote('${item.id}', this.value)">${r.note || ''}</textarea>
           <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
             <label style="font-size:12px;color:var(--gray-500);display:flex;align-items:center;gap:6px;cursor:pointer">
@@ -668,7 +599,6 @@ async function setStatus(itemId, status) {
   const prev = state.checklistResponses[itemId] || { status: 'pending', note: '' };
   state.checklistResponses[itemId] = { ...prev, status };
 
-  // Aggiorna UI
   const row  = el('cl-' + itemId);
   const note = el('note-' + itemId);
   if (row) {
@@ -678,13 +608,10 @@ async function setStatus(itemId, status) {
   }
   if (note) note.classList.toggle('visible', status === 'anomaly');
 
-  // Aggiorna progress bar
-  const total = [...document.querySelectorAll('.cl-item')].length;
-  const done  = Object.values(state.checklistResponses).filter(r => r.status !== 'pending').length;
+  const done = Object.values(state.checklistResponses).filter(r => r.status !== 'pending').length;
   const allItems = Object.values(CHECKLISTS).flat();
   updateProgress(done, allItems.length);
 
-  // Salva su Supabase (upsert)
   await db.from('checklist_responses').upsert({
     intervention_id: state.currentInterventionId,
     item_id:         itemId,
@@ -693,7 +620,6 @@ async function setStatus(itemId, status) {
     note:            state.checklistResponses[itemId].note,
   }, { onConflict: 'intervention_id,item_id' });
 
-  // Se anomalia, salva anche in anomalies
   if (status === 'anomaly') {
     const item = Object.values(CHECKLISTS).flat().find(i => i.id === itemId);
     await db.from('anomalies').upsert({
@@ -720,7 +646,7 @@ async function saveNote(itemId, note) {
   }, { onConflict: 'intervention_id,item_id' });
 }
 
-// ── FOTO ANOMALIA ──
+// ── FOTO ANOMALIA ──────────────────────────────────────────────
 async function uploadAnomalyPhoto(itemId, input) {
   const file = input.files[0];
   if (!file) return;
@@ -729,7 +655,6 @@ async function uploadAnomalyPhoto(itemId, input) {
   if (statusEl) statusEl.textContent = 'Caricamento...';
 
   try {
-    // Ridimensiona immagine prima dell'upload (max 1200px)
     const resized = await resizeImage(file, 1200);
     const ext     = file.name.split('.').pop() || 'jpg';
     const path    = `${state.org.id}/${state.currentInterventionId}/${itemId}.${ext}`;
@@ -738,17 +663,13 @@ async function uploadAnomalyPhoto(itemId, input) {
       upsert: true,
       contentType: resized.type,
     });
-
     if (error) throw error;
 
-    // Ottieni URL pubblico (signed per 1 ora)
     const { data: urlData } = await db.storage.from('reports').createSignedUrl(path, 3600);
     const photoUrl = urlData?.signedUrl;
 
     if (photoUrl) {
       state.checklistResponses[itemId] = { ...state.checklistResponses[itemId], photo_url: photoUrl };
-
-      // Salva URL nel db
       await db.from('checklist_responses').upsert({
         intervention_id: state.currentInterventionId,
         item_id:         itemId,
@@ -757,7 +678,6 @@ async function uploadAnomalyPhoto(itemId, input) {
         note:            state.checklistResponses[itemId]?.note || '',
       }, { onConflict: 'intervention_id,item_id' });
 
-      // Mostra anteprima
       const noteEl = document.getElementById('note-' + itemId);
       if (noteEl) {
         let img = noteEl.querySelector('img');
@@ -777,7 +697,6 @@ async function uploadAnomalyPhoto(itemId, input) {
   }
 }
 
-// Ridimensiona immagine lato client prima dell'upload
 function resizeImage(file, maxPx) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -803,8 +722,8 @@ function updateProgress(done, total) {
   if (lbl) lbl.textContent = `Completato ${done}/${total} controlli`;
 }
 
+// ── FIRMA & COMPLETAMENTO ──────────────────────────────────────
 async function completeIntervention() {
-  // Mostra modale firma prima di completare
   showSignatureModal();
 }
 
@@ -819,23 +738,19 @@ function showSignatureModal() {
       <button class="btn-secondary" style="flex:1" onclick="clearSignature()">Cancella</button>
       <button class="btn-primary" style="flex:1;margin-top:0" onclick="confirmSignatureAndComplete()">Conferma e genera verbale</button>
     </div>
-    <button class="btn-outline" onclick="closeModal()">Salta firma</button>
+    <button class="btn-outline" onclick="skipSignature()">Salta firma</button>
   `);
-
-  // Inizializza canvas firma dopo render
   setTimeout(initSignaturePad, 50);
 }
 
 function initSignaturePad() {
-  const canvas  = document.getElementById('sig-canvas');
+  const canvas = document.getElementById('sig-canvas');
   if (!canvas) return;
-  const ctx     = canvas.getContext('2d');
-  let drawing   = false;
-  let lastX = 0, lastY = 0;
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
 
-  // Scala per display ad alta densità (retina)
-  const ratio   = window.devicePixelRatio || 1;
-  const rect    = canvas.getBoundingClientRect();
+  const ratio  = window.devicePixelRatio || 1;
+  const rect   = canvas.getBoundingClientRect();
   canvas.width  = rect.width  * ratio;
   canvas.height = rect.height * ratio;
   ctx.scale(ratio, ratio);
@@ -845,28 +760,18 @@ function initSignaturePad() {
   ctx.lineJoin    = 'round';
 
   function getPos(e) {
-    const r = canvas.getBoundingClientRect();
+    const r   = canvas.getBoundingClientRect();
     const src = e.touches ? e.touches[0] : e;
-    return { x: (src.clientX - r.left), y: (src.clientY - r.top) };
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
   }
-
   function start(e) {
-    e.preventDefault();
-    drawing = true;
-    const p = getPos(e);
-    lastX = p.x; lastY = p.y;
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
+    e.preventDefault(); drawing = true;
+    const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y);
   }
   function move(e) {
-    e.preventDefault();
-    if (!drawing) return;
-    const p = getPos(e);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-    lastX = p.x; lastY = p.y;
+    e.preventDefault(); if (!drawing) return;
+    const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p.x, p.y);
   }
   function stop(e) { e.preventDefault(); drawing = false; }
 
@@ -881,23 +786,25 @@ function initSignaturePad() {
 function clearSignature() {
   const canvas = document.getElementById('sig-canvas');
   if (!canvas) return;
-  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  const ratio = window.devicePixelRatio || 1;
+  const rect  = canvas.getBoundingClientRect();
+  canvas.getContext('2d').clearRect(0, 0, rect.width * ratio, rect.height * ratio);
+}
+
+async function skipSignature() {
+  closeModal();
+  await finalizeIntervention(null);
 }
 
 async function confirmSignatureAndComplete() {
   const canvas = document.getElementById('sig-canvas');
   let signatureData = null;
-
   if (canvas) {
-    // Controlla che qualcosa sia stato firmato
     const ctx    = canvas.getContext('2d');
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     const signed = pixels.some((v, i) => i % 4 === 3 && v > 0);
-    if (signed) {
-      signatureData = canvas.toDataURL('image/png');
-    }
+    if (signed) signatureData = canvas.toDataURL('image/png');
   }
-
   closeModal();
   await finalizeIntervention(signatureData);
 }
@@ -905,7 +812,6 @@ async function confirmSignatureAndComplete() {
 async function finalizeIntervention(signatureData) {
   const anomalies = Object.values(state.checklistResponses).filter(r => r.status === 'anomaly').length;
   const outcome   = anomalies > 0 ? 'anomalie' : 'conforme';
-
   showLoading(true);
   await generateSchedules();
   await db.from('interventions').update({
@@ -915,7 +821,6 @@ async function finalizeIntervention(signatureData) {
     completed_at:     new Date().toISOString(),
   }).eq('id', state.currentInterventionId);
   showLoading(false);
-
   showToast('Intervento completato', 'success');
   navigate('verbali');
   loadVerbali();
@@ -931,8 +836,7 @@ async function generateSchedules() {
   const toInsert = [];
   for (const eqType of inv.equipment_types) {
     const items = CHECKLISTS[eqType] || [];
-    const freqs = [...new Set(items.map(i => i.freq))];
-
+    const freqs = [...new Set(items.map(i => i.freq).filter(f => f !== 'p1'))];
     for (const freq of freqs) {
       const months   = FREQ_MONTHS[freq] || 6;
       const nextDate = addMonths(inv.date, months);
@@ -948,22 +852,17 @@ async function generateSchedules() {
       });
     }
   }
-
-  if (toInsert.length) {
-    await db.from('schedules').insert(toInsert);
-  }
+  if (toInsert.length) await db.from('schedules').insert(toInsert);
 }
 
 async function loadScadenzario() {
   showLoading(true);
-  const today = new Date().toISOString().split('T')[0];
   const { data } = await db.from('schedules')
     .select('*, clients(name, city)')
     .eq('organization_id', state.org?.id)
     .neq('status', 'completed')
     .order('next_date');
   showLoading(false);
-
   state.scadenze = data || [];
   renderScadenzario(state.scadenze, state.filter);
 }
@@ -993,7 +892,6 @@ function renderScadenzario(scadenze, filter) {
     return;
   }
 
-  // Raggruppa per mese
   const groups = {};
   filtered.forEach(s => {
     const key = s.next_date.slice(0, 7);
@@ -1004,7 +902,6 @@ function renderScadenzario(scadenze, filter) {
   cont.innerHTML = Object.entries(groups).map(([month, items]) => {
     const [year, m] = month.split('-');
     const label = new Date(year, m - 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
-
     return `<div class="month-group">
       <div class="month-label">${label}</div>
       ${items.map(s => {
@@ -1057,7 +954,7 @@ async function loadVerbali() {
       <div class="verbale-client">${inv.clients?.name || '—'}</div>
       <div class="verbale-footer">
         <span style="font-size:12px;color:var(--gray-500)">${(inv.equipment_types || []).join(', ')}</span>
-        <button class="btn-text" onclick="event.stopPropagation();generatePDF('${inv.id}')">Scarica PDF →</button>
+        <button class="btn-text" onclick="event.stopPropagation();generatePDF('${inv.id}')">Scarica PDF</button>
       </div>
     </div>`).join('');
 }
@@ -1076,9 +973,9 @@ async function generatePDF(interventionId) {
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const W   = 210, M = 15;
+    const W = 210, M = 15;
 
-    // --- Header ---
+    // Header verde
     doc.setFillColor(7, 53, 36);
     doc.rect(0, 0, W, 32, 'F');
     doc.setTextColor(255, 255, 255);
@@ -1091,19 +988,19 @@ async function generatePDF(interventionId) {
     doc.setTextColor(0, 0, 0);
     let y = 40;
 
-    // --- Dati intervento ---
+    // Dati intervento
     doc.setFontSize(11); doc.setFont('helvetica','bold');
     doc.text('DATI INTERVENTO', M, y); y += 7;
     doc.setFont('helvetica','normal'); doc.setFontSize(10);
     const details = [
-      ['Cliente', inv.clients?.name || '—'],
+      ['Cliente',   inv.clients?.name || '—'],
       ['Indirizzo', [inv.clients?.address, inv.clients?.city].filter(Boolean).join(', ') || '—'],
-      ['Data', formatDate(inv.date)],
-      ['Tipo', capitalize(inv.type)],
-      ['Tecnico', inv.profiles?.full_name || '—'],
+      ['Data',      formatDate(inv.date)],
+      ['Tipo',      capitalize(inv.type)],
+      ['Tecnico',   inv.profiles?.full_name || '—'],
       ['Cert. VVF', inv.profiles?.cert_number || '—'],
-      ['Impianti', (inv.equipment_types || []).map(capitalize).join(', ')],
-      ['Esito', outcomeLabel(inv.outcome)],
+      ['Impianti',  (inv.equipment_types || []).map(capitalize).join(', ')],
+      ['Esito',     outcomeLabel(inv.outcome)],
     ];
     details.forEach(([k, v]) => {
       doc.setFont('helvetica','bold');   doc.text(k + ':', M, y);
@@ -1115,7 +1012,7 @@ async function generatePDF(interventionId) {
     doc.setLineWidth(.3); doc.setDrawColor(220, 220, 220);
     doc.line(M, y, W - M, y); y += 6;
 
-    // --- Checklist per impianto ---
+    // Checklist per impianto
     for (const eqType of inv.equipment_types) {
       const items = CHECKLISTS[eqType] || [];
       if (!items.length) continue;
@@ -1123,34 +1020,49 @@ async function generatePDF(interventionId) {
       doc.setFontSize(11); doc.setFont('helvetica','bold');
       doc.text(capitalize(eqType).toUpperCase(), M, y); y += 6;
 
-      items.forEach(item => {
-        if (y > 265) { doc.addPage(); y = 20; }
+      for (const item of items) {
+        if (y > 250) { doc.addPage(); y = 20; }
         const r = responses?.find(r => r.item_id === item.id);
-        const statusTxt = r?.status === 'ok' ? '✓' : r?.status === 'anomaly' ? '!' : r?.status === 'na' ? 'N/A' : '—';
+
+        const statusTxt = r?.status === 'ok' ? 'OK' : r?.status === 'anomaly' ? 'AN' : r?.status === 'na' ? 'N/A' : '---';
         const statusCol = r?.status === 'ok' ? [22,160,94] : r?.status === 'anomaly' ? [220,38,38] : [107,114,128];
 
-        doc.setFontSize(9);
-        doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
-        const lines = doc.splitTextToSize(item.desc, 140);
+        doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+        const lines = doc.splitTextToSize(item.desc, 138);
         doc.text(lines, M + 5, y);
         doc.setFont('helvetica','italic'); doc.setTextColor(120,120,120);
         doc.text(item.norm, M + 5, y + lines.length * 4);
-        doc.setFont('helvetica','bold'); doc.setTextColor(...statusCol);
-        doc.text(statusTxt, W - M - 5, y, { align: 'right' });
+
+        doc.setFillColor(...statusCol);
+        doc.roundedRect(W - M - 18, y - 4, 18, 8, 2, 2, 'F');
+        doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(7);
+        doc.text(statusTxt, W - M - 9, y + 0.5, { align: 'center' });
         doc.setTextColor(0,0,0);
 
         if (r?.note) {
-          doc.setFont('helvetica','italic'); doc.setFontSize(8);
-          doc.setTextColor(180,50,50);
+          doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(180,50,50);
           doc.text('Nota: ' + r.note, M + 5, y + lines.length * 4 + 4);
           y += 5;
         }
-        y += lines.length * 4 + 7;
-      });
+
+        // Foto anomalia
+        if (r?.photo_url) {
+          try {
+            const imgData = await fetchImageAsBase64(r.photo_url);
+            if (imgData) {
+              if (y > 220) { doc.addPage(); y = 20; }
+              doc.addImage(imgData, 'JPEG', M + 5, y + lines.length * 4 + 6, 60, 40);
+              y += 46;
+            }
+          } catch(e) { /* foto non disponibile */ }
+        }
+
+        y += lines.length * 4 + 9;
+      }
       y += 3;
     }
 
-    // --- Anomalie ---
+    // Anomalie riepilogo
     if (anom?.length) {
       if (y > 230) { doc.addPage(); y = 20; }
       doc.setDrawColor(220,38,38); doc.setLineWidth(.5);
@@ -1163,14 +1075,14 @@ async function generatePDF(interventionId) {
         if (y > 265) { doc.addPage(); y = 20; }
         const sev = { critical:'CRITICA', high:'ALTA', medium:'MEDIA', low:'BASSA' }[a.severity] || '';
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
-        doc.text(`${idx+1}. ${capitalize(a.equipment_type)} — Gravità: ${sev}`, M, y); y += 5;
+        doc.text(`${idx+1}. ${capitalize(a.equipment_type)} — Gravita: ${sev}`, M, y); y += 5;
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
         const lines = doc.splitTextToSize(a.description, W - M*2);
         doc.text(lines, M, y); y += lines.length * 4 + 4;
       });
     }
 
-    // --- Footer firma ---
+    // Footer pagine
     const pageCount = doc.getNumberOfPages();
     for (let p = 1; p <= pageCount; p++) {
       doc.setPage(p);
@@ -1178,7 +1090,7 @@ async function generatePDF(interventionId) {
       doc.text(`Pagina ${p}/${pageCount}  ·  Generato da FireApp  ·  ${new Date().toLocaleDateString('it-IT')}`, W/2, 292, { align: 'center' });
     }
 
-    // Firma cliente sull'ultima pagina
+    // Firma cliente
     const lastPage = doc.getNumberOfPages();
     doc.setPage(lastPage);
     doc.setDrawColor(180,180,180); doc.setLineWidth(.3);
@@ -1188,11 +1100,10 @@ async function generatePDF(interventionId) {
     doc.text('Firma tecnico', M, 280);
     doc.text('Firma cliente / referente', 115, 280);
 
-    // Incorpora firma digitale se disponibile
     if (inv.client_signature) {
       try {
         doc.addImage(inv.client_signature, 'PNG', 115, 255, 70, 18);
-      } catch(e) { /* firma non valida, ignora */ }
+      } catch(e) { /* firma non valida */ }
     }
 
     doc.save(`verbale_${inv.report_number?.replace('/','_') || interventionId}.pdf`);
@@ -1204,6 +1115,17 @@ async function generatePDF(interventionId) {
   } finally {
     showLoading(false);
   }
+}
+
+async function fetchImageAsBase64(url) {
+  const response = await fetch(url);
+  const blob     = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror   = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 // ============================================================
@@ -1237,7 +1159,6 @@ function daysBetween(a, b) {
   return Math.round((new Date(b) - new Date(a)) / 86400000);
 }
 
-// Verifica se una data è più vecchia di N anni (usato per P6)
 function isOlderThan(dateStr, years) {
   if (!dateStr) return false;
   const d = new Date(dateStr + 'T12:00:00');
@@ -1248,21 +1169,21 @@ function isOlderThan(dateStr, years) {
 
 function statusBadge(status) {
   const map = {
-    draft:       ['badge-gray',   'Bozza'],
-    in_progress: ['badge-amber',  'In corso'],
-    completed:   ['badge-green',  'Completato'],
-    signed:      ['badge-green',  'Firmato'],
-    conforme:    ['badge-green',  'Conforme'],
-    anomalie:    ['badge-amber',  'Con anomalie'],
-    non_conforme:['badge-red',    'Non conforme'],
-    pending:     ['badge-gray',   'In corso'],
+    draft:        ['badge-gray',  'Bozza'],
+    in_progress:  ['badge-amber', 'In corso'],
+    completed:    ['badge-green', 'Completato'],
+    signed:       ['badge-green', 'Firmato'],
+    conforme:     ['badge-green', 'Conforme'],
+    anomalie:     ['badge-amber', 'Con anomalie'],
+    non_conforme: ['badge-red',   'Non conforme'],
+    pending:      ['badge-gray',  'In corso'],
   };
   const [cls, label] = map[status] || ['badge-gray', status || '—'];
   return `<span class="badge ${cls}">${label}</span>`;
 }
 
 function outcomeLabel(o) {
-  return { conforme:'Conforme ✓', anomalie:'Conforme con anomalie', non_conforme:'Non conforme', pending:'In corso' }[o] || '—';
+  return { conforme:'Conforme', anomalie:'Conforme con anomalie', non_conforme:'Non conforme', pending:'In corso' }[o] || '—';
 }
 
 function categoryIcon(cat) {
@@ -1275,7 +1196,7 @@ function categoryIcon(cat) {
   };
   const ico = icons[cat] || icons.commerciale;
   return {
-    bg: ico.bg,
+    bg:  ico.bg,
     svg: `<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:${ico.col};fill:none;stroke-width:1.8;stroke-linecap:round"><path d="${ico.path}"/></svg>`,
   };
 }
@@ -1298,6 +1219,7 @@ function showModal(html) {
   el('modal-overlay').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 }
+
 function closeModal() {
   el('modal-overlay').classList.add('hidden');
   document.body.style.overflow = '';
