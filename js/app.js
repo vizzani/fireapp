@@ -46,10 +46,33 @@ const CHECKLISTS = {
     { id:'evac_02', desc:'Test messaggi preregistrati di evacuazione zona per zona',               norm:'UNI EN 54-16 · p.6.2',                   freq:'mensile'    },
     { id:'evac_03', desc:'Verifica amplificatori e livelli di uscita (dBSPL)',                     norm:'UNI EN 54-16 · p.6.3',                   freq:'semestrale' },
     { id:'evac_04', desc:'Test microfono di emergenza e priorità messaggi',                        norm:'UNI EN 54-16 · p.6.4',                   freq:'semestrale' },
-    { id:'evac_05', desc:'Misura intelligibilità del parlato STI/RASTI per zona (soglia ≥ 0.50)', norm:'UNI EN 54-16 · p.7',                     freq:'annuale'    },
+    { id:'evac_05', desc:'Misura intelligibilità del parlato STI/RASTI per zona (soglia >= 0.50)', norm:'UNI EN 54-16 · p.7',                     freq:'annuale'    },
     { id:'evac_06', desc:'Verifica diffusori: integrità fisica e copertura acustica',              norm:'UNI ISO 7240-19 · p.8.1',                freq:'semestrale' },
     { id:'evac_07', desc:'Controllo segnalazione guasti alla centrale',                            norm:'UNI EN 54-16 · p.6.5',                   freq:'semestrale' },
     { id:'evac_08', desc:'Verifica autonomia batterie (min 24h standby + 30min allarme)',          norm:'UNI EN 54-16 · p.6.6',                   freq:'semestrale' },
+  ],
+
+  // ── PRESA IN CONSEGNA (P1) — UNI 11224:2011 ──────────────────────────────
+  // Attivata quando tipo intervento = 'p1'
+  // Verifica documentazione e congruenza impianto IRAI con il progetto
+  p1_irai: [
+    // -- DOCUMENTAZIONE --
+    { id:'p1_01', desc:'Acquisizione e verifica progetto esecutivo impianto IRAI (planimetrie, schema a blocchi, relazione tecnica)', norm:'UNI 11224:2011 · p.5.2.1 · D.M. 1/9/2021', freq:'p1' },
+    { id:'p1_02', desc:'Verifica Dichiarazione di Conformità (Di.Co.) ai sensi del D.M. 37/2008 con allegati tecnici', norm:'D.M. 37/2008 · art.7 · UNI 11224:2011 · p.5.2.2', freq:'p1' },
+    { id:'p1_03', desc:'Verifica certificazioni CE dei componenti (centrale, rivelatori, PAM, segnalatori) secondo UNI EN 54', norm:'UNI EN 54 · UNI 11224:2011 · p.5.2.3', freq:'p1' },
+    { id:'p1_04', desc:'Acquisizione manuale di uso e manutenzione della centrale IRAI e dei componenti principali', norm:'UNI 11224:2011 · p.5.2.4 · UNI EN 54-2', freq:'p1' },
+    { id:'p1_05', desc:'Verifica registro dei controlli precedenti (log storico manutenzioni, falsi allarmi, guasti)', norm:'UNI 9795 · p.12.8 · UNI 11224:2011 · p.5.2.5', freq:'p1' },
+    { id:'p1_06', desc:'Acquisizione verbale di collaudo iniziale o di primo funzionamento firmato dall\'installatore', norm:'UNI 11224:2011 · p.5.2.6', freq:'p1' },
+    // -- CONGRUENZA IMPIANTO CON PROGETTO --
+    { id:'p1_07', desc:'Verifica corrispondenza numero e tipologia rivelatori installati vs progetto (fumo, calore, fiamma)', norm:'UNI 9795 · p.5 · UNI 11224:2011 · p.5.3.1', freq:'p1' },
+    { id:'p1_08', desc:'Verifica posizionamento rivelatori: altezze, interdistanze e coperture conforme a UNI 9795', norm:'UNI 9795 · p.5.4 · UNI 11224:2011 · p.5.3.2', freq:'p1' },
+    { id:'p1_09', desc:'Verifica numero e posizionamento PAM (Pulsanti Allarme Manuale) rispetto al progetto', norm:'UNI 9795 · p.5.6 · UNI 11224:2011 · p.5.3.3', freq:'p1' },
+    { id:'p1_10', desc:'Verifica suddivisione in zone di rivelazione rispetto a planimetrie di progetto', norm:'UNI 9795 · p.5.2 · UNI 11224:2011 · p.5.3.4', freq:'p1' },
+    { id:'p1_11', desc:'Verifica centrale: modello, capacità linee, firmware e corrispondenza con progetto', norm:'UNI EN 54-2 · UNI 11224:2011 · p.5.3.5', freq:'p1' },
+    { id:'p1_12', desc:'Verifica cablaggio: tipo di linea (singola/ad anello), sezione cavi, segregazione percorsi', norm:'UNI 9795 · p.6 · UNI 11224:2011 · p.5.3.6', freq:'p1' },
+    { id:'p1_13', desc:'Verifica interfacce di comando: sgancio porte REI, spegnimento impianti HVAC, attivazione EVAC', norm:'UNI 9795 · p.5.9 · UNI 11224:2011 · p.5.3.7', freq:'p1' },
+    { id:'p1_14', desc:'Test funzionale completo: simulazione allarme zona per zona, verifica attuatori e temporizzazioni', norm:'UNI 9795 · p.12 · UNI 11224:2011 · p.5.4', freq:'p1' },
+    { id:'p1_15', desc:'Compilazione verbale di presa in consegna con riserve (se presenti) e firma del responsabile', norm:'UNI 11224:2011 · p.6 · D.M. 1/9/2021', freq:'p1' },
   ],
 };
 
@@ -377,7 +400,13 @@ async function openClient(clientId) {
     db.from('interventions').select('*').eq('client_id', clientId).order('date', { ascending: false }).limit(5),
   ]);
 
-  const equipTags = (equip || []).map(e => `<span class="badge badge-blue">${e.type} (${e.quantity})</span>`).join('');
+  const equipTags = (equip || []).map(e => {
+    // P6: evidenzia in rosso componenti con > 12 anni dalla data installazione
+    const isP6 = e.installation_date && isOlderThan(e.installation_date, 12);
+    const tagCls = isP6 ? 'badge badge-red' : 'badge badge-blue';
+    const p6Warn = isP6 ? ' ⚠ Rev. P6' : '';
+    return `<span class="${tagCls}" title="${isP6 ? 'Revisione P6 scaduta — installazione: '+formatDate(e.installation_date) : ''}">${e.type} (${e.quantity})${p6Warn}</span>`;
+  }).join('');
   const intervList = (lastInterv || []).map(i => `
     <div class="row-item" onclick="openIntervention('${i.id}')">
       <div class="row-body">
@@ -476,6 +505,7 @@ function showNewInterventionModal(preselectedClientId = null) {
         <option value="triennale">Triennale</option>
         <option value="decennale">Decennale</option>
         <option value="straordinario">Straordinario</option>
+        <option value="p1">Presa in Consegna (P1) — UNI 11224</option>
       </select>
     </div>
     <div class="form-field"><label>Impianti da verificare</label>
@@ -532,6 +562,9 @@ async function openIntervention(interventionId) {
   showLoading(false);
   if (!inv) return;
 
+  // Salva tipo intervento in state (serve per logica P1)
+  state.currentInterventionType = inv.type;
+
   // Popola state risposte
   (responses || []).forEach(r => {
     state.checklistResponses[r.item_id] = { status: r.status, note: r.note || '' };
@@ -572,23 +605,51 @@ function switchTab(el, tab) {
 }
 
 function renderChecklist(tab) {
-  const items   = CHECKLISTS[tab] || [];
+  // Per P1: usa checklist p1_irai indipendentemente dal tab selezionato
+  const isP1 = state.currentInterventionType === 'p1';
+  const items = isP1 ? (CHECKLISTS['p1_irai'] || []) : (CHECKLISTS[tab] || []);
   const content = document.querySelector('#screen-intervento .checklist-area');
   if (!content) return;
 
+  if (isP1 && items.length && tab !== 'irai') {
+    // P1 mostra solo la checklist irai presa in consegna
+    content.innerHTML = `<div style="background:var(--amber-50);border-left:3px solid var(--amber-400);border-radius:0 var(--radius-md) var(--radius-md) 0;padding:10px 13px;margin-bottom:12px;font-size:13px;color:#78350f">
+      <strong>Presa in Consegna (P1) — UNI 11224</strong><br>
+      La checklist P1 si applica all'impianto IRAI. Seleziona la tab IRAI per compilarla.
+    </div>`;
+    return;
+  }
+
   content.innerHTML = items.map(item => {
-    const r      = state.checklistResponses[item.id] || { status: 'pending', note: '' };
+    const r       = state.checklistResponses[item.id] || { status: 'pending', note: '', photo_url: '' };
     const itemCls = r.status !== 'pending' ? `status-${r.status}` : '';
     const noteVis = r.status === 'anomaly' ? 'visible' : '';
+    const freqCls = item.freq === 'p1' ? 'freq-p1' : `freq-${item.freq}`;
+    const freqLbl = item.freq === 'p1' ? 'Presa in consegna' : item.freq;
+
+    // Foto allegata se presente
+    const photoHtml = r.photo_url
+      ? `<div style="margin-top:6px"><img src="${r.photo_url}" style="max-width:100%;border-radius:6px;border:1px solid var(--gray-200)" /></div>`
+      : '';
 
     return `<div class="cl-item ${itemCls}" id="cl-${item.id}">
       <div class="cl-body">
         <div class="cl-desc">${item.desc}</div>
         <div class="cl-norm">${item.norm}</div>
-        <span class="cl-freq freq-${item.freq}">${item.freq}</span>
+        <span class="cl-freq ${freqCls}">${freqLbl}</span>
         <div class="cl-note ${noteVis}" id="note-${item.id}">
           <textarea rows="2" placeholder="Descrivi l'anomalia riscontrata…"
-            onchange="saveNote('${item.id}', this.value)">${r.note}</textarea>
+            onchange="saveNote('${item.id}', this.value)">${r.note || ''}</textarea>
+          <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
+            <label style="font-size:12px;color:var(--gray-500);display:flex;align-items:center;gap:6px;cursor:pointer">
+              <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--green-500);fill:none;stroke-width:2;stroke-linecap:round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Allega foto anomalia
+              <input type="file" accept="image/*" capture="environment" style="display:none"
+                onchange="uploadAnomalyPhoto('${item.id}', this)">
+            </label>
+            <span id="photo-status-${item.id}" style="font-size:11px;color:var(--green-500)"></span>
+          </div>
+          ${photoHtml}
         </div>
       </div>
       <div class="cl-actions">
@@ -659,6 +720,81 @@ async function saveNote(itemId, note) {
   }, { onConflict: 'intervention_id,item_id' });
 }
 
+// ── FOTO ANOMALIA ──
+async function uploadAnomalyPhoto(itemId, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById('photo-status-' + itemId);
+  if (statusEl) statusEl.textContent = 'Caricamento...';
+
+  try {
+    // Ridimensiona immagine prima dell'upload (max 1200px)
+    const resized = await resizeImage(file, 1200);
+    const ext     = file.name.split('.').pop() || 'jpg';
+    const path    = `${state.org.id}/${state.currentInterventionId}/${itemId}.${ext}`;
+
+    const { error } = await db.storage.from('reports').upload(path, resized, {
+      upsert: true,
+      contentType: resized.type,
+    });
+
+    if (error) throw error;
+
+    // Ottieni URL pubblico (signed per 1 ora)
+    const { data: urlData } = await db.storage.from('reports').createSignedUrl(path, 3600);
+    const photoUrl = urlData?.signedUrl;
+
+    if (photoUrl) {
+      state.checklistResponses[itemId] = { ...state.checklistResponses[itemId], photo_url: photoUrl };
+
+      // Salva URL nel db
+      await db.from('checklist_responses').upsert({
+        intervention_id: state.currentInterventionId,
+        item_id:         itemId,
+        equipment_type:  state.currentTab,
+        status:          state.checklistResponses[itemId]?.status || 'anomaly',
+        note:            state.checklistResponses[itemId]?.note || '',
+      }, { onConflict: 'intervention_id,item_id' });
+
+      // Mostra anteprima
+      const noteEl = document.getElementById('note-' + itemId);
+      if (noteEl) {
+        let img = noteEl.querySelector('img');
+        if (!img) {
+          img = document.createElement('img');
+          img.style.cssText = 'max-width:100%;border-radius:6px;border:1px solid var(--gray-200);margin-top:6px';
+          noteEl.appendChild(img);
+        }
+        img.src = photoUrl;
+      }
+      if (statusEl) statusEl.textContent = 'Foto allegata';
+    }
+  } catch (err) {
+    console.error('Photo upload error:', err);
+    if (statusEl) statusEl.textContent = 'Errore upload';
+    showToast('Errore nel caricamento foto', 'error');
+  }
+}
+
+// Ridimensiona immagine lato client prima dell'upload
+function resizeImage(file, maxPx) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.82);
+    };
+    img.src = url;
+  });
+}
+
 function updateProgress(done, total) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   const bar = el('interv-progress-bar');
@@ -668,17 +804,115 @@ function updateProgress(done, total) {
 }
 
 async function completeIntervention() {
+  // Mostra modale firma prima di completare
+  showSignatureModal();
+}
+
+function showSignatureModal() {
+  showModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Firma del cliente</div>
+    <p style="font-size:13px;color:var(--gray-500);margin-bottom:14px">Il cliente firma direttamente sullo schermo per approvare il verbale.</p>
+    <canvas id="sig-canvas" class="sig-canvas" width="400" height="160"></canvas>
+    <div class="sig-label">Firma qui sopra con il dito</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn-secondary" style="flex:1" onclick="clearSignature()">Cancella</button>
+      <button class="btn-primary" style="flex:1;margin-top:0" onclick="confirmSignatureAndComplete()">Conferma e genera verbale</button>
+    </div>
+    <button class="btn-outline" onclick="closeModal()">Salta firma</button>
+  `);
+
+  // Inizializza canvas firma dopo render
+  setTimeout(initSignaturePad, 50);
+}
+
+function initSignaturePad() {
+  const canvas  = document.getElementById('sig-canvas');
+  if (!canvas) return;
+  const ctx     = canvas.getContext('2d');
+  let drawing   = false;
+  let lastX = 0, lastY = 0;
+
+  // Scala per display ad alta densità (retina)
+  const ratio   = window.devicePixelRatio || 1;
+  const rect    = canvas.getBoundingClientRect();
+  canvas.width  = rect.width  * ratio;
+  canvas.height = rect.height * ratio;
+  ctx.scale(ratio, ratio);
+  ctx.strokeStyle = '#073524';
+  ctx.lineWidth   = 2.2;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+
+  function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: (src.clientX - r.left), y: (src.clientY - r.top) };
+  }
+
+  function start(e) {
+    e.preventDefault();
+    drawing = true;
+    const p = getPos(e);
+    lastX = p.x; lastY = p.y;
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+  }
+  function move(e) {
+    e.preventDefault();
+    if (!drawing) return;
+    const p = getPos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    lastX = p.x; lastY = p.y;
+  }
+  function stop(e) { e.preventDefault(); drawing = false; }
+
+  canvas.addEventListener('mousedown',  start, { passive: false });
+  canvas.addEventListener('mousemove',  move,  { passive: false });
+  canvas.addEventListener('mouseup',    stop,  { passive: false });
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove',  move,  { passive: false });
+  canvas.addEventListener('touchend',   stop,  { passive: false });
+}
+
+function clearSignature() {
+  const canvas = document.getElementById('sig-canvas');
+  if (!canvas) return;
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+}
+
+async function confirmSignatureAndComplete() {
+  const canvas = document.getElementById('sig-canvas');
+  let signatureData = null;
+
+  if (canvas) {
+    // Controlla che qualcosa sia stato firmato
+    const ctx    = canvas.getContext('2d');
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const signed = pixels.some((v, i) => i % 4 === 3 && v > 0);
+    if (signed) {
+      signatureData = canvas.toDataURL('image/png');
+    }
+  }
+
+  closeModal();
+  await finalizeIntervention(signatureData);
+}
+
+async function finalizeIntervention(signatureData) {
   const anomalies = Object.values(state.checklistResponses).filter(r => r.status === 'anomaly').length;
-  const outcome = anomalies > 0 ? 'anomalie' : 'conforme';
+  const outcome   = anomalies > 0 ? 'anomalie' : 'conforme';
 
   showLoading(true);
-  // Genera scadenze automatiche
   await generateSchedules();
-  // Aggiorna stato intervento
   await db.from('interventions').update({
-    status: 'completed',
+    status:           'completed',
     outcome,
-    completed_at: new Date().toISOString(),
+    client_signature: signatureData,
+    completed_at:     new Date().toISOString(),
   }).eq('id', state.currentInterventionId);
   showLoading(false);
 
@@ -954,6 +1188,13 @@ async function generatePDF(interventionId) {
     doc.text('Firma tecnico', M, 280);
     doc.text('Firma cliente / referente', 115, 280);
 
+    // Incorpora firma digitale se disponibile
+    if (inv.client_signature) {
+      try {
+        doc.addImage(inv.client_signature, 'PNG', 115, 255, 70, 18);
+      } catch(e) { /* firma non valida, ignora */ }
+    }
+
     doc.save(`verbale_${inv.report_number?.replace('/','_') || interventionId}.pdf`);
     showToast('PDF scaricato', 'success');
 
@@ -994,6 +1235,15 @@ function addMonths(dateStr, months) {
 
 function daysBetween(a, b) {
   return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
+// Verifica se una data è più vecchia di N anni (usato per P6)
+function isOlderThan(dateStr, years) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + 'T12:00:00');
+  const limit = new Date();
+  limit.setFullYear(limit.getFullYear() - years);
+  return d < limit;
 }
 
 function statusBadge(status) {
