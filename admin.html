@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FireApp — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#073524;--green-light:#16a05e;--green-bright:#22c97a;
+  --amber:#d97706;--red:#dc2626;--border:#e5e7eb;--bg:#f3f4f6;
+  --ink:#111827;--ink-soft:#374151;--ink-muted:#6b7280;--white:#fff;
+  --font:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+
+/* Login */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--green)}
+.login-box{background:white;border-radius:16px;padding:36px;width:100%;max-width:360px}
+.login-box h1{font-size:22px;font-weight:800;color:var(--ink);margin-bottom:4px}
+.login-box p{font-size:14px;color:var(--ink-muted);margin-bottom:24px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:700;color:var(--ink-soft);margin-bottom:5px}
+.field input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:var(--font);color:var(--ink);transition:border-color .2s}
+.field input:focus{border-color:var(--green-light);outline:none}
+.btn{width:100%;padding:12px;background:var(--green);color:white;font-size:15px;font-weight:700;border-radius:8px;border:none;font-family:var(--font);cursor:pointer;transition:background .15s}
+.btn:hover{background:#0d6040}
+.login-err{font-size:13px;color:var(--red);margin-top:10px;min-height:16px}
+
+/* App shell */
+#app-screen{display:none}
+.topbar{background:var(--green);height:56px;display:flex;align-items:center;padding:0 24px;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-logo{font-size:18px;font-weight:800;color:white;display:flex;align-items:center;gap:8px}
+.topbar-logo span{font-size:12px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:4px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.btn-logout{font-size:13px;color:rgba(255,255,255,.6);background:none;border:none;cursor:pointer;font-family:var(--font);padding:6px 12px;border-radius:6px;transition:background .15s}
+.btn-logout:hover{background:rgba(255,255,255,.1);color:white}
+
+.main{max-width:1200px;margin:0 auto;padding:28px 24px}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.stat{background:white;border:1px solid var(--border);border-radius:12px;padding:18px}
+.stat-val{font-size:28px;font-weight:800;color:var(--ink);line-height:1}
+.stat-label{font-size:12px;color:var(--ink-muted);margin-top:4px;font-weight:500}
+.stat-val.ok{color:var(--green-light)}
+.stat-val.warn{color:var(--amber)}
+.stat-val.danger{color:var(--red)}
+
+/* Toolbar */
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.toolbar-left{display:flex;align-items:center;gap:10px}
+.section-title{font-size:17px;font-weight:800;color:var(--ink)}
+.search{padding:9px 14px 9px 36px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:var(--font);color:var(--ink);background:white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center;width:220px;transition:border-color .2s}
+.search:focus{border-color:var(--green-light);outline:none}
+.filter-btns{display:flex;gap:6px}
+.filter-btn{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:600;border:1px solid var(--border);background:white;color:var(--ink-muted);cursor:pointer;font-family:var(--font);transition:all .15s}
+.filter-btn.active{background:var(--green);color:white;border-color:var(--green)}
+
+/* Table */
+.table-wrap{background:white;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead{background:var(--bg)}
+th{padding:11px 16px;font-size:12px;font-weight:700;color:var(--ink-muted);text-align:left;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+td{padding:13px 16px;font-size:14px;border-bottom:1px solid #f9fafb;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+.org-name{font-weight:700;color:var(--ink)}
+.org-email{font-size:12px;color:var(--ink-muted);margin-top:2px}
+
+/* Badges */
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px}
+.badge-trial{background:#e0f2fe;color:#0369a1}
+.badge-attivo{background:#e1f5ee;color:#065f46}
+.badge-scaduto{background:#fee2e2;color:#991b1b}
+.badge-starter{background:#ede9fe;color:#5b21b6}
+.badge-pro{background:#e1f5ee;color:#065f46}
+
+/* Trial countdown */
+.trial-days{font-size:13px;font-weight:600}
+.trial-days.ok{color:var(--green-light)}
+.trial-days.warn{color:var(--amber)}
+.trial-days.danger{color:var(--red)}
+
+/* Actions */
+.action-btns{display:flex;gap:6px}
+.action-btn{padding:5px 10px;font-size:12px;font-weight:600;border-radius:6px;border:1px solid var(--border);background:white;cursor:pointer;font-family:var(--font);transition:all .15s;white-space:nowrap}
+.action-btn:hover{border-color:var(--green-light);color:var(--green-light)}
+.action-btn.danger:hover{border-color:var(--red);color:var(--red)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.hidden{display:none}
+.modal{background:white;border-radius:14px;padding:24px;width:100%;max-width:400px}
+.modal-title{font-size:17px;font-weight:800;margin-bottom:16px}
+.modal-field{margin-bottom:12px}
+.modal-field label{display:block;font-size:13px;font-weight:700;color:var(--ink-soft);margin-bottom:4px}
+.modal-field input,.modal-field select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:14px;font-family:var(--font);color:var(--ink)}
+.modal-actions{display:flex;gap:8px;margin-top:18px}
+.modal-btn{flex:1;padding:10px;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer;border:none;transition:opacity .15s}
+.modal-btn:active{opacity:.8}
+.modal-btn-ok{background:var(--green);color:white}
+.modal-btn-cancel{background:var(--bg);color:var(--ink-soft)}
+
+/* Loading / empty */
+.loading-row td{text-align:center;padding:40px;color:var(--ink-muted);font-size:14px}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--green-light);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:white;font-size:14px;font-weight:600;padding:12px 22px;border-radius:99px;z-index:9999;display:none}
+.toast.visible{display:block}
+.toast.success{background:var(--green-light)}
+.toast.error{background:var(--red)}
+
+@media(max-width:700px){
+  .stats{grid-template-columns:1fr 1fr}
+  .toolbar{flex-direction:column;align-items:flex-start}
+  .table-wrap{overflow-x:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>FireApp Admin</h1>
+    <p>Accedi con le credenziali amministratore</p>
+    <div class="field"><label>Email</label><input type="email" id="adm-email" placeholder="admin@fireapp.it"></div>
+    <div class="field"><label>Password</label><input type="password" id="adm-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')adminLogin()"></div>
+    <button class="btn" onclick="adminLogin()">Accedi</button>
+    <div class="login-err" id="adm-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-logo">
+      FireApp <span>Admin</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-logout" onclick="adminLogout()">Esci</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- KPI -->
+    <div class="stats">
+      <div class="stat"><div class="stat-val ok" id="stat-total">—</div><div class="stat-label">Organizzazioni totali</div></div>
+      <div class="stat"><div class="stat-val" id="stat-trial">—</div><div class="stat-label">In trial</div></div>
+      <div class="stat"><div class="stat-val ok" id="stat-active">—</div><div class="stat-label">Piani attivi</div></div>
+      <div class="stat"><div class="stat-val danger" id="stat-expired">—</div><div class="stat-label">Trial scaduti</div></div>
+    </div>
+
+    <!-- Table -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="section-title">Clienti SaaS</div>
+        <input type="search" class="search" placeholder="Cerca azienda..." oninput="filterTable(this.value)" id="search-input">
+      </div>
+      <div class="filter-btns">
+        <button class="filter-btn active" onclick="setFilter('all',this)">Tutti</button>
+        <button class="filter-btn" onclick="setFilter('trial',this)">Trial</button>
+        <button class="filter-btn" onclick="setFilter('attivo',this)">Attivi</button>
+        <button class="filter-btn" onclick="setFilter('scaduto',this)">Scaduti</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Azienda</th>
+            <th>Piano</th>
+            <th>Trial / Stato</th>
+            <th>Clienti</th>
+            <th>Interventi</th>
+            <th>Ultima attività</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody id="orgs-table">
+          <tr class="loading-row"><td colspan="7"><span class="spinner"></span>Caricamento...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay hidden" id="modal-overlay" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modal-title">Azione</div>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Annulla</button>
+      <button class="modal-btn modal-btn-ok" id="modal-confirm">Conferma</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── CONFIGURA QUI ─────────────────────────────────────────
+const SUPABASE_URL          = 'https://XXXXXXXXXXXXXXXX.supabase.co';
+const SUPABASE_ANON_KEY     = 'eyJ...';
+// Admin: inserisci l'email dell'utente admin di Supabase
+const ADMIN_EMAIL           = 'tua@email.it';
+// ──────────────────────────────────────────────────────────
+
+const { createClient } = window.supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let allOrgs = [];
+let activeFilter = 'all';
+
+// ── AUTH ──
+async function adminLogin() {
+  const email = document.getElementById('adm-email').value;
+  const pwd   = document.getElementById('adm-pwd').value;
+  document.getElementById('adm-err').textContent = '';
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pwd });
+  if (error) { document.getElementById('adm-err').textContent = 'Credenziali non valide'; return; }
+
+  // Verifica che sia admin
+  const { data: profile } = await db.from('profiles').select('role').eq('id', data.user.id).single();
+  if (profile?.role !== 'admin') {
+    await db.auth.signOut();
+    document.getElementById('adm-err').textContent = 'Accesso non autorizzato';
+    return;
+  }
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  loadOrgs();
+}
+
+async function adminLogout() {
+  await db.auth.signOut();
+  location.reload();
+}
+
+db.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    loadOrgs();
+  }
+});
+
+// ── LOAD DATA ──
+async function loadOrgs() {
+  const { data, error } = await db.from('admin_organizations').select('*');
+  if (error) { showToast('Errore nel caricamento', 'error'); return; }
+
+  allOrgs = data || [];
+  updateStats(allOrgs);
+  renderTable(allOrgs);
+}
+
+function updateStats(orgs) {
+  document.getElementById('stat-total').textContent   = orgs.length;
+  document.getElementById('stat-trial').textContent   = orgs.filter(o => o.status === 'trial').length;
+  document.getElementById('stat-active').textContent  = orgs.filter(o => o.status === 'attivo').length;
+  document.getElementById('stat-expired').textContent = orgs.filter(o => o.status === 'scaduto').length;
+}
+
+function renderTable(orgs) {
+  const tbody = document.getElementById('orgs-table');
+  if (!orgs.length) {
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Nessun cliente trovato</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = orgs.map(o => {
+    const planBadge  = `<span class="badge badge-${o.plan}">${o.plan}</span>`;
+    const trialHtml  = trialDisplay(o);
+    const lastAct    = o.last_activity ? new Date(o.last_activity).toLocaleDateString('it-IT') : '—';
+    return `<tr>
+      <td>
+        <div class="org-name">${esc(o.name)}</div>
+        <div class="org-email">${esc(o.email || '—')}</div>
+      </td>
+      <td>${planBadge}</td>
+      <td>${trialHtml}</td>
+      <td>${o.clients_count || 0}</td>
+      <td>${o.interventions_count || 0}</td>
+      <td>${lastAct}</td>
+      <td>
+        <div class="action-btns">
+          <button class="action-btn" onclick="openExtend('${o.id}','${esc(o.name)}')">+ Trial</button>
+          <button class="action-btn" onclick="openActivate('${o.id}','${esc(o.name)}')">Attiva</button>
+          <button class="action-btn danger" onclick="openToggle('${o.id}','${esc(o.name)}',${o.active})">${o.active ? 'Sospendi' : 'Riattiva'}</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function trialDisplay(o) {
+  if (o.status === 'attivo') return `<span class="badge badge-attivo">Attivo</span>`;
+  if (o.status === 'scaduto') return `<span class="badge badge-scaduto">Scaduto</span>`;
+  const days = o.trial_days_left || 0;
+  const cls  = days > 14 ? 'ok' : days > 5 ? 'warn' : 'danger';
+  return `<span class="trial-days ${cls}">${days} giorni rimasti</span>`;
+}
+
+// ── FILTERS ──
+function filterTable(query) {
+  const q = query.toLowerCase();
+  let filtered = allOrgs.filter(o =>
+    o.name?.toLowerCase().includes(q) || o.email?.toLowerCase().includes(q)
+  );
+  if (activeFilter !== 'all') filtered = filtered.filter(o => o.status === activeFilter);
+  renderTable(filtered);
+}
+
+function setFilter(filter, btn) {
+  activeFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterTable(document.getElementById('search-input').value);
+}
+
+// ── ACTIONS ──
+function openExtend(orgId, name) {
+  document.getElementById('modal-title').textContent = `Estendi trial — ${name}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-field">
+      <label>Giorni aggiuntivi</label>
+      <select id="ext-days">
+        <option value="15">15 giorni</option>
+        <option value="30" selected>30 giorni</option>
+        <option value="60">60 giorni</option>
+        <option value="90">90 giorni</option>
+      </select>
+    </div>`;
+  document.getElementById('modal-confirm').onclick = async () => {
+    const days = parseInt(document.getElementById('ext-days').value);
+    await db.rpc('extend_trial', { p_org_id: orgId, p_days: days });
+    closeModal(); showToast('Trial esteso di ' + days + ' giorni', 'success');
+    loadOrgs();
+  };
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function openActivate(orgId, name) {
+  document.getElementById('modal-title').textContent = `Attiva piano — ${name}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-field">
+      <label>Piano</label>
+      <select id="act-plan">
+        <option value="starter">Starter — 29€/mese</option>
+        <option value="pro" selected>Pro — 59€/mese</option>
+        <option value="agenzia">Agenzia — 120€/mese</option>
+      </select>
+    </div>`;
+  document.getElementById('modal-confirm').onclick = async () => {
+    const plan = document.getElementById('act-plan').value;
+    await db.rpc('activate_plan', { p_org_id: orgId, p_plan: plan });
+    closeModal(); showToast('Piano ' + plan + ' attivato', 'success');
+    loadOrgs();
+  };
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function openToggle(orgId, name, active) {
+  document.getElementById('modal-title').textContent = active ? `Sospendi — ${name}` : `Riattiva — ${name}`;
+  document.getElementById('modal-body').innerHTML = `<p style="font-size:14px;color:#374151">${active ? 'L\'azienda non potrà più accedere a FireApp.' : 'L\'azienda riacquisterà l\'accesso a FireApp.'}</p>`;
+  document.getElementById('modal-confirm').onclick = async () => {
+    await db.from('organizations').update({ active: !active }).eq('id', orgId);
+    closeModal(); showToast(active ? 'Account sospeso' : 'Account riattivato', 'success');
+    loadOrgs();
+  };
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+// ── UTILS ──
+function esc(s) { return String(s || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast visible ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('visible'), 2800);
+}
+</script>
+</body>
+</html>
