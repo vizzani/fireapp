@@ -546,6 +546,7 @@ a { color: inherit; text-decoration: none; }
 .freq-annuale    { background: var(--green-100); color: var(--green-700); }
 .freq-triennale  { background: var(--purple-100); color: var(--purple-600); }
 .freq-decennale  { background: var(--gray-100);   color: var(--gray-600); }
+.freq-p1         { background: #073524; color: #22c97a; }
 
 .cl-actions {
   display: flex;
