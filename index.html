@@ -8,8 +8,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="FireApp">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">  <!-- aggiungi questa -->
   <title>FireApp — Manutenzione Antincendio</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23073524'/><text y='.9em' font-size='80' x='10'>🔥</text></svg>">
@@ -70,10 +68,18 @@
       <div class="content">
         <div class="greeting" id="greeting">Buongiorno</div>
         <div class="kpi-grid">
-          <div class="kpi ok">  <div class="kpi-val" id="kpi-oggi">–</div>    <div class="kpi-label">Oggi</div></div>
-          <div class="kpi warn"><div class="kpi-val" id="kpi-scadenze">–</div><div class="kpi-label">Scadenze</div></div>
-          <div class="kpi danger"><div class="kpi-val" id="kpi-anomalie">–</div><div class="kpi-label">Anomalie</div></div>
-          <div class="kpi">    <div class="kpi-val" id="kpi-clienti">–</div>  <div class="kpi-label">Clienti</div></div>
+          <div class="kpi ok" onclick="scrollToSection('today-interventions')" style="cursor:pointer">
+            <div class="kpi-val" id="kpi-oggi">–</div><div class="kpi-label">Oggi</div>
+          </div>
+          <div class="kpi warn" onclick="navigate('scadenzario')" style="cursor:pointer">
+            <div class="kpi-val" id="kpi-scadenze">–</div><div class="kpi-label">Scadenze</div>
+          </div>
+          <div class="kpi danger" onclick="navigate('scadenzario')" style="cursor:pointer">
+            <div class="kpi-val" id="kpi-anomalie">–</div><div class="kpi-label">Anomalie</div>
+          </div>
+          <div class="kpi" onclick="navigate('clienti')" style="cursor:pointer">
+            <div class="kpi-val" id="kpi-clienti">–</div><div class="kpi-label">Clienti</div>
+          </div>
         </div>
         <div id="alerts-container"></div>
         <div class="section-header">
