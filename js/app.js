@@ -1010,5 +1010,9 @@ function showLoading(show) {
   el('loading').classList.toggle('hidden', !show);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+function scrollToSection(id) {
+  const target = document.getElementById(id);
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
+document.addEventListener('DOMContentLoaded', init);
