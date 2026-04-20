@@ -1,8 +1,9 @@
-/* FireApp — app.js */
+/* FireApp — app.js — v1.1 */
 
 const SUPABASE_URL      = 'https://bclfpawguqpwypahmzbk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjbGZwYXdndXFwd3lwYWhtemJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyOTI1NjQsImV4cCI6MjA5MTg2ODU2NH0.ONgZu-n7oWJaQJ7V6P3MOpBD9eUYA0YimGDHyi7DLcI';
 
+// ─── CHECKLISTS ────────────────────────────────────────────────────────────────
 const CHECKLISTS = {
   estintori: [
     { id:'est_01', desc:'Verifica accessibilita e segnaletica di posizionamento', norm:'D.Lgs 81/2008 - Art.46', freq:'semestrale' },
@@ -42,6 +43,25 @@ const CHECKLISTS = {
     { id:'evac_07', desc:'Controllo segnalazione guasti alla centrale', norm:'UNI EN 54-16 - p.6.5', freq:'semestrale' },
     { id:'evac_08', desc:'Verifica autonomia batterie (min 24h standby + 30min allarme)', norm:'UNI EN 54-16 - p.6.6', freq:'semestrale' },
   ],
+  sprinkler: [
+    { id:'spr_01', desc:'Verifica visiva centrale idrica: pompe, manometri, pressostati e valvole di controllo', norm:'UNI EN 12845 - p.20.1', freq:'semestrale' },
+    { id:'spr_02', desc:'Prova di avviamento automatico pompa principale e pompa di riserva', norm:'UNI EN 12845 - p.20.2', freq:'semestrale' },
+    { id:'spr_03', desc:'Verifica livello serbatoio idrico e tenuta valvole di intercettazione', norm:'UNI EN 12845 - p.20.3', freq:'semestrale' },
+    { id:'spr_04', desc:'Controllo integrita testine sprinkler: assenza corrosione, ostruzioni e vernice', norm:'UNI EN 12845 - p.20.4', freq:'semestrale' },
+    { id:'spr_05', desc:'Verifica valvole di allarme, gong idraulico e segnalatori di flusso', norm:'UNI EN 12845 - p.20.5', freq:'semestrale' },
+    { id:'spr_06', desc:'Test prova flusso: verifica portata e pressione di esercizio a valle', norm:'UNI EN 12845 - p.20.6', freq:'annuale' },
+    { id:'spr_07', desc:'Controllo e pulizia filtri, strainer e scarichi in fognatura', norm:'UNI EN 12845 - p.20.7', freq:'annuale' },
+    { id:'spr_08', desc:'Verifica etichettatura zone sprinkler e planimetria aggiornata in centrale', norm:'UNI EN 12845 - p.20.8', freq:'annuale' },
+  ],
+  porte_rei: [
+    { id:'rei_01', desc:'Verifica integrita porta: anta, telaio, guarnizioni intumescenti e soglia', norm:'UNI EN 1634-1 - D.M. 03/08/2015', freq:'semestrale' },
+    { id:'rei_02', desc:'Controllo funzionamento maniglione antipanico, serratura e scrocco', norm:'UNI EN 1634-1 - p.6.3 - UNI EN 179', freq:'semestrale' },
+    { id:'rei_03', desc:'Verifica dispositivo di autochiusura (molla aerea o asta a pavimento)', norm:'UNI 11473 - p.5.1 - UNI EN 1154', freq:'semestrale' },
+    { id:'rei_04', desc:'Test di chiusura: la porta si chiude completamente e il latch scatta senza assistenza', norm:'UNI 11473 - p.5.2', freq:'semestrale' },
+    { id:'rei_05', desc:'Controllo cerniere, perni e controtelaio: assenza giochi, allentamenti o deformazioni', norm:'UNI 11473 - p.5.3', freq:'semestrale' },
+    { id:'rei_06', desc:'Verifica marcatura CE, targhetta identificativa con classe REI e certificazione di prodotto', norm:'D.M. 03/08/2015 - art.4', freq:'annuale' },
+    { id:'rei_07', desc:'Verifica dispositivo di coordinamento ante (se porta a due ante) e sequenza di chiusura', norm:'UNI EN 1158 - UNI 11473 - p.5.4', freq:'annuale' },
+  ],
   p1_irai: [
     { id:'p1_01', desc:'Acquisizione e verifica progetto esecutivo impianto IRAI (planimetrie, schema a blocchi, relazione tecnica)', norm:'UNI 11224:2011 - p.5.2.1 - D.M. 1/9/2021', freq:'p1' },
     { id:'p1_02', desc:'Verifica Dichiarazione di Conformita (Di.Co.) ai sensi del D.M. 37/2008 con allegati tecnici', norm:'D.M. 37/2008 - art.7 - UNI 11224:2011 - p.5.2.2', freq:'p1' },
@@ -67,6 +87,12 @@ const FREQ_MONTHS = {
   triennale: 36, quinquennale: 60, decennale: 120,
 };
 
+const EQ_TYPE_LABELS = {
+  estintori: 'Estintori', idranti: 'Idranti', irai: 'IRAI',
+  evac: 'EVAC', sprinkler: 'Sprinkler', porte_rei: 'Porte REI',
+};
+
+// ─── SUPABASE ──────────────────────────────────────────────────────────────────
 const { createClient } = window.supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -77,6 +103,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+// ─── STATE ────────────────────────────────────────────────────────────────────
 let state = {
   user: null,
   profile: null,
@@ -85,20 +112,24 @@ let state = {
   currentClientId: null,
   currentInterventionId: null,
   currentInterventionType: null,
+  currentEquipmentTypes: [],
   currentTab: 'estintori',
+  currentEquipment: [],   // equipment del cliente aperto
   checklistResponses: {},
   scadenze: [],
   filter: 'all',
+  navHistory: [],          // stack di navigazione per goBack()
 };
 
 function el(id) { return document.getElementById(id); }
 
+// ─── INIT ─────────────────────────────────────────────────────────────────────
 async function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(console.warn);
+  setupOfflineBanner();
   const params = new URLSearchParams(location.search);
   if (params.get('action') === 'new-intervention') window._pendingAction = 'new-intervention';
 
-  // Controlla sessione esistente al primo caricamento
   const { data: { session } } = await db.auth.getSession();
   if (session?.user) {
     state.user = session.user;
@@ -109,7 +140,6 @@ async function init() {
     showLogin();
   }
 
-  // Ascolta solo eventi significativi, non ogni refresh token
   db.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session?.user && !state.user) {
       state.user = session.user;
@@ -120,14 +150,26 @@ async function init() {
       state.user = session.user;
       if (!state.org) await loadProfile();
     } else if (event === 'SIGNED_OUT') {
-      state.user = null;
-      state.profile = null;
-      state.org = null;
+      state.user = null; state.profile = null; state.org = null;
       showLogin();
     }
   });
 }
 
+// ─── OFFLINE BANNER ───────────────────────────────────────────────────────────
+function setupOfflineBanner() {
+  const banner = document.createElement('div');
+  banner.id = 'offline-banner';
+  banner.textContent = 'Modalita offline — i dati saranno sincronizzati al rientro in rete';
+  banner.style.cssText = 'display:none;position:fixed;top:64px;left:0;right:0;z-index:90;background:#f59e0b;color:#78350f;font-size:13px;font-weight:600;text-align:center;padding:8px 16px;';
+  document.body.appendChild(banner);
+  function update() { banner.style.display = navigator.onLine ? 'none' : 'block'; }
+  window.addEventListener('online', update);
+  window.addEventListener('offline', update);
+  update();
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
 async function loadProfile() {
   const { data, error } = await db.from('profiles').select('*, organizations(*)').eq('id', state.user.id).single();
   if (error || !data) return;
@@ -185,9 +227,45 @@ async function signOut() {
   await db.auth.signOut();
 }
 
-const SCREEN_TITLES = { dashboard: 'Dashboard', clienti: 'Clienti', intervento: 'Intervento', scadenzario: 'Scadenzario', verbali: 'Verbali' };
+// ─── RESET PASSWORD ───────────────────────────────────────────────────────────
+function showResetPasswordModal() {
+  showModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Password dimenticata</div>
+    <p style="font-size:14px;color:var(--gray-600);margin-bottom:18px">Inserisci la tua email. Ti invieremo un link per reimpostare la password.</p>
+    <div class="form-field">
+      <label>Email</label>
+      <input id="reset-email" type="email" placeholder="tecnico@azienda.it">
+    </div>
+    <div id="reset-msg" style="font-size:13px;color:var(--green-600);margin-bottom:12px;display:none"></div>
+    <button class="btn-primary" onclick="sendResetPassword()">Invia link di reset</button>
+    <button class="btn-outline" onclick="closeModal()">Annulla</button>
+  `);
+}
 
-function navigate(screen) {
+async function sendResetPassword() {
+  const email = el('reset-email')?.value.trim();
+  if (!email) { showToast('Inserisci la tua email', 'error'); return; }
+  showLoading(true);
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+  showLoading(false);
+  if (error) { showToast('Errore nell\'invio. Verifica l\'email.', 'error'); return; }
+  const msg = el('reset-msg');
+  if (msg) { msg.textContent = 'Email inviata! Controlla la tua casella.'; msg.style.display = 'block'; }
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+const SCREEN_TITLES = {
+  dashboard: 'Dashboard', clienti: 'Clienti',
+  intervento: 'Intervento', scadenzario: 'Scadenzario', verbali: 'Verbali'
+};
+
+function navigate(screen, pushHistory = true) {
+  const currentScreen = document.querySelector('.screen.active')?.id?.replace('screen-', '');
+  if (pushHistory && currentScreen && currentScreen !== screen) {
+    state.navHistory.push(currentScreen);
+    if (state.navHistory.length > 10) state.navHistory.shift();
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const target = el('screen-' + screen);
@@ -196,22 +274,32 @@ function navigate(screen) {
   if (navItem) navItem.classList.add('active');
   el('topbar-title').textContent = SCREEN_TITLES[screen] || '';
   el('topbar-subtitle').textContent = '';
-  el('btn-back').classList.add('hidden');
+  el('btn-back').classList.toggle('hidden', state.navHistory.length === 0);
   if (screen === 'clienti') loadClienti();
   if (screen === 'scadenzario') loadScadenzario();
   if (screen === 'verbali') loadVerbali();
 }
 
-function goBack() { navigate('dashboard'); }
+function goBack() {
+  const prev = state.navHistory.pop();
+  if (prev) {
+    navigate(prev, false);
+  } else {
+    navigate('dashboard', false);
+  }
+  el('btn-back').classList.toggle('hidden', state.navHistory.length === 0);
+}
 
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   showLoading(true);
   try {
     const today = new Date().toISOString().split('T')[0];
+    const clientIds = await getOrgClientIds();
     const [{ data: todayInterv }, { data: scadenze }, { data: anomalies }, { count: clientiCount }] = await Promise.all([
       db.from('interventions').select('*, clients(name, city)').eq('date', today).eq('organization_id', state.org?.id),
       db.from('schedules').select('*').lte('next_date', addDays(today, 30)).eq('organization_id', state.org?.id).eq('status', 'scheduled'),
-      db.from('anomalies').select('*').eq('resolved', false).in('client_id', await getOrgClientIds()),
+      clientIds.length ? db.from('anomalies').select('*').eq('resolved', false).in('client_id', clientIds) : Promise.resolve({ data: [] }),
       db.from('clients').select('*', { count: 'exact', head: true }).eq('organization_id', state.org?.id),
     ]);
     el('kpi-oggi').textContent = todayInterv?.length ?? 0;
@@ -221,7 +309,7 @@ async function loadDashboard() {
     const h = new Date().getHours();
     const greeting = h < 12 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera';
     el('greeting').textContent = greeting + (state.profile?.full_name ? ', ' + state.profile.full_name.split(' ')[0] : '');
-    renderDashboardAlerts(scadenze, anomalies);
+    renderDashboardAlerts(scadenze, anomalies, today);
     renderTodayInterventions(todayInterv || []);
     state.clients = await fetchClients();
   } catch (err) {
@@ -232,16 +320,15 @@ async function loadDashboard() {
   }
 }
 
-function renderDashboardAlerts(scadenze, anomalies) {
+function renderDashboardAlerts(scadenze, anomalies, today) {
   const cont = el('alerts-container');
   cont.innerHTML = '';
-  const today = new Date().toISOString().split('T')[0];
   const overdue = (scadenze || []).filter(s => s.next_date < today);
-  if (overdue.length > 0) cont.innerHTML += '<div class="alert alert-red"><strong>Manutenzioni scadute (' + overdue.length + ')</strong></div>';
+  if (overdue.length > 0) cont.innerHTML += '<div class="alert alert-red" style="cursor:pointer" onclick="navigate(\'scadenzario\')"><strong>Manutenzioni scadute (' + overdue.length + ')</strong> — tocca per vedere</div>';
   const critical = (anomalies || []).filter(a => a.severity === 'critical' || a.severity === 'high');
   if (critical.length > 0) cont.innerHTML += '<div class="alert alert-purple"><strong>Anomalie urgenti aperte (' + critical.length + ')</strong></div>';
   const soon = (scadenze || []).filter(s => { const d = daysBetween(today, s.next_date); return d >= 0 && d <= 7; });
-  if (soon.length > 0 && overdue.length === 0) cont.innerHTML += '<div class="alert alert-amber"><strong>Scadenze entro 7 giorni (' + soon.length + ')</strong></div>';
+  if (soon.length > 0 && overdue.length === 0) cont.innerHTML += '<div class="alert alert-amber" style="cursor:pointer" onclick="navigate(\'scadenzario\')"><strong>Scadenze entro 7 giorni (' + soon.length + ')</strong> — tocca per vedere</div>';
 }
 
 function renderTodayInterventions(interventions) {
@@ -251,7 +338,7 @@ function renderTodayInterventions(interventions) {
     return;
   }
   cont.innerHTML = interventions.map(inv => {
-    const tags = (inv.equipment_types || []).map(t => '<span class="badge badge-blue">' + t + '</span>').join('');
+    const tags = (inv.equipment_types || []).map(t => '<span class="badge badge-blue">' + (EQ_TYPE_LABELS[t] || t) + '</span>').join('');
     return '<div class="card" onclick="openIntervention(\'' + inv.id + '\')">' +
       '<div class="card-header"><div><div class="card-title">' + (inv.clients?.name || '—') + '</div>' +
       '<div class="card-sub">' + (inv.clients?.city || '') + ' - ' + inv.type + '</div></div>' +
@@ -260,6 +347,7 @@ function renderTodayInterventions(interventions) {
   }).join('');
 }
 
+// ─── CLIENTI ──────────────────────────────────────────────────────────────────
 async function fetchClients() {
   const { data } = await db.from('clients').select('*').eq('organization_id', state.org?.id).order('name');
   return data || [];
@@ -293,37 +381,206 @@ function filterClienti(query) {
   renderClienti(state.clients.filter(c => c.name.toLowerCase().includes(q) || (c.city || '').toLowerCase().includes(q)));
 }
 
+// ─── APRI CLIENTE (modal con info + impianti + interventi) ────────────────────
 async function openClient(clientId) {
   state.currentClientId = clientId;
-  const client = state.clients.find(c => c.id === clientId);
+  let client = state.clients.find(c => c.id === clientId);
+  if (!client) {
+    const { data } = await db.from('clients').select('*').eq('id', clientId).single();
+    client = data;
+  }
   if (!client) return;
+  showLoading(true);
   const [{ data: equip }, { data: lastInterv }] = await Promise.all([
-    db.from('equipment').select('*').eq('client_id', clientId),
+    db.from('equipment').select('*').eq('client_id', clientId).order('type'),
     db.from('interventions').select('*').eq('client_id', clientId).order('date', { ascending: false }).limit(5),
   ]);
-  const equipTags = (equip || []).map(e => {
-    const isP6 = e.installation_date && isOlderThan(e.installation_date, 12);
-    const cls = isP6 ? 'badge badge-red' : 'badge badge-blue';
-    return '<span class="' + cls + '">' + e.type + ' (' + e.quantity + ')' + (isP6 ? ' - Rev. P6 scaduta' : '') + '</span>';
-  }).join('');
-  const intervList = (lastInterv || []).map(i =>
-    '<div class="row-item" onclick="openIntervention(\'' + i.id + '\')">' +
-    '<div class="row-body"><div class="row-title">' + formatDate(i.date) + ' - ' + i.type + '</div>' +
-    '<div class="row-desc">' + (i.report_number || 'Bozza') + '</div></div>' +
-    statusBadge(i.status) + '</div>'
-  ).join('');
+  showLoading(false);
+  state.currentEquipment = equip || [];
+  renderClientModal(client, equip || [], lastInterv || []);
+}
+
+function renderClientModal(client, equip, interventions) {
+  const equipHtml = equip.length
+    ? equip.map(e => {
+        const isP6 = e.installation_date && isOlderThan(e.installation_date, 12);
+        const dateStr = e.installation_date ? ' · Inst. ' + formatDate(e.installation_date) : '';
+        const p6badge = isP6 ? '<span class="badge badge-red" style="margin-left:6px">P6</span>' : '';
+        const brandStr = [e.brand, e.model].filter(Boolean).join(' ');
+        return '<div class="equip-item">' +
+          '<div class="equip-info">' +
+          '<div class="equip-name"><strong>' + (EQ_TYPE_LABELS[e.type] || e.type) + '</strong> &times; ' + e.quantity + p6badge + '</div>' +
+          '<div style="font-size:12px;color:var(--gray-500)">' + [brandStr, e.location, dateStr].filter(Boolean).join(' · ') + '</div>' +
+          '</div>' +
+          '<div class="equip-actions">' +
+          '<button class="btn-icon" onclick="showEditEquipmentModal(\'' + e.id + '\',\'' + client.id + '\')" title="Modifica">' +
+          '<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:var(--gray-500);fill:none;stroke-width:2;stroke-linecap:round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
+          '</button>' +
+          '<button class="btn-icon btn-icon-red" onclick="deleteEquipment(\'' + e.id + '\',\'' + client.id + '\')" title="Elimina">' +
+          '<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:var(--red-500,#dc2626);fill:none;stroke-width:2;stroke-linecap:round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>' +
+          '</button>' +
+          '</div></div>';
+      }).join('')
+    : '<div style="font-size:13px;color:var(--gray-500);padding:8px 0">Nessun impianto configurato</div>';
+
+  const intervHtml = interventions.length
+    ? interventions.map(i =>
+        '<div class="row-item" onclick="closeModal();openIntervention(\'' + i.id + '\')">' +
+        '<div class="row-body"><div class="row-title">' + formatDate(i.date) + ' — ' + capitalize(i.type) + '</div>' +
+        '<div class="row-desc">n. ' + (i.report_number || 'Bozza') + '</div></div>' +
+        statusBadge(i.outcome || i.status) + '</div>'
+      ).join('')
+    : '<div style="padding:10px 0;font-size:13px;color:var(--gray-500)">Nessun intervento registrato</div>';
+
+  const infoLine = [client.address, client.city, client.province].filter(Boolean).join(', ');
+
   showModal(
     '<div class="modal-handle"></div>' +
-    '<div class="modal-title">' + client.name + '</div>' +
-    '<p style="font-size:13px;color:var(--gray-600);margin-bottom:14px">' + [client.address, client.city, client.province].filter(Boolean).join(', ') + '</p>' +
-    '<div class="card-tags" style="margin-bottom:14px">' + (equipTags || '<span style="color:var(--gray-500);font-size:13px">Nessun impianto configurato</span>') + '</div>' +
-    '<div class="section-header"><span>Ultimi interventi</span></div>' +
-    '<div class="row-list" style="margin-bottom:14px">' + (intervList || '<div style="padding:14px;font-size:13px;color:var(--gray-500)">Nessun intervento registrato</div>') + '</div>' +
-    '<button class="btn-primary" onclick="closeModal();showNewInterventionModal(\'' + clientId + '\')">+ Nuovo intervento</button>' +
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">' +
+    '<div class="modal-title" style="margin-bottom:0">' + client.name + '</div>' +
+    '<button class="btn-secondary" style="padding:6px 12px;font-size:12px;flex-shrink:0;margin-left:10px" onclick="showEditClientModal(\'' + client.id + '\')">Modifica</button>' +
+    '</div>' +
+    '<p style="font-size:13px;color:var(--gray-500);margin-bottom:18px">' + (infoLine || 'Indirizzo non inserito') + (client.email ? ' · ' + client.email : '') + '</p>' +
+
+    '<div class="section-header" style="margin-bottom:10px">' +
+    '<span>Impianti installati</span>' +
+    '<button class="btn-text" onclick="showAddEquipmentModal(\'' + client.id + '\')">+ Aggiungi</button>' +
+    '</div>' +
+    '<div id="equip-list-modal">' + equipHtml + '</div>' +
+
+    '<div class="section-header" style="margin-top:18px;margin-bottom:8px"><span>Ultimi interventi</span></div>' +
+    '<div class="row-list" style="margin-bottom:14px">' + intervHtml + '</div>' +
+
+    '<button class="btn-primary" onclick="closeModal();showNewInterventionModal(\'' + client.id + '\')">+ Nuovo intervento</button>' +
     '<button class="btn-outline" onclick="closeModal()">Chiudi</button>'
   );
 }
 
+// ─── MODIFICA CLIENTE ─────────────────────────────────────────────────────────
+function showEditClientModal(clientId) {
+  const client = state.clients.find(c => c.id === clientId) || {};
+  const cats = ['commerciale','industriale','civile','scuola','ospedale','albergo'];
+  const catLabels = { commerciale:'Commerciale', industriale:'Industriale', civile:'Civile / Condominio', scuola:'Scuola / Ufficio pubblico', ospedale:'Ospedale / Sanitario', albergo:'Albergo / Ricettivo' };
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div class="modal-title">Modifica cliente</div>' +
+    '<div class="form-field"><label>Ragione sociale *</label><input id="ec-name" value="' + esc(client.name) + '" placeholder="Es. Supermercato Rossi Srl"></div>' +
+    '<div class="form-field"><label>Indirizzo</label><input id="ec-address" value="' + esc(client.address) + '" placeholder="Via Roma 1"></div>' +
+    '<div class="form-field"><label>Citta</label><input id="ec-city" value="' + esc(client.city) + '" placeholder="Pescara"></div>' +
+    '<div class="form-field"><label>Telefono</label><input type="tel" id="ec-phone" value="' + esc(client.phone) + '" placeholder="+39 085 000000"></div>' +
+    '<div class="form-field"><label>Email</label><input type="email" id="ec-email" value="' + esc(client.email) + '" placeholder="info@cliente.it"></div>' +
+    '<div class="form-field"><label>Categoria</label><select id="ec-cat">' +
+    cats.map(c => '<option value="' + c + '"' + (client.category === c ? ' selected' : '') + '>' + catLabels[c] + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-field"><label>Note</label><textarea id="ec-notes" rows="2" placeholder="Informazioni aggiuntive...">' + esc(client.notes) + '</textarea></div>' +
+    '<button class="btn-primary" onclick="saveEditClient(\'' + clientId + '\')">Salva modifiche</button>' +
+    '<button class="btn-outline" onclick="openClient(\'' + clientId + '\')">Annulla</button>'
+  );
+}
+
+async function saveEditClient(clientId) {
+  const name = el('ec-name')?.value.trim();
+  if (!name) { showToast('Il nome e obbligatorio', 'error'); return; }
+  showLoading(true);
+  const { error } = await db.from('clients').update({
+    name,
+    address: el('ec-address')?.value.trim() || null,
+    city: el('ec-city')?.value.trim() || null,
+    phone: el('ec-phone')?.value.trim() || null,
+    email: el('ec-email')?.value.trim() || null,
+    category: el('ec-cat')?.value || 'commerciale',
+    notes: el('ec-notes')?.value.trim() || null,
+  }).eq('id', clientId);
+  showLoading(false);
+  if (error) { showToast('Errore nel salvataggio', 'error'); return; }
+  // Aggiorna lo state locale
+  const idx = state.clients.findIndex(c => c.id === clientId);
+  if (idx >= 0) {
+    state.clients[idx] = { ...state.clients[idx], name, address: el('ec-address')?.value.trim(), city: el('ec-city')?.value.trim(), email: el('ec-email')?.value.trim() };
+  }
+  showToast('Cliente aggiornato', 'success');
+  await openClient(clientId);
+}
+
+// ─── GESTIONE EQUIPMENT ───────────────────────────────────────────────────────
+function showAddEquipmentModal(clientId) {
+  const types = Object.keys(EQ_TYPE_LABELS);
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div class="modal-title">Aggiungi impianto</div>' +
+    '<div class="form-field"><label>Tipo impianto *</label><select id="eq-type">' +
+    types.map(t => '<option value="' + t + '">' + EQ_TYPE_LABELS[t] + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-field"><label>Quantita</label><input type="number" id="eq-qty" value="1" min="1"></div>' +
+    '<div class="form-field"><label>Marca</label><input id="eq-brand" placeholder="Es. Sicurit"></div>' +
+    '<div class="form-field"><label>Modello</label><input id="eq-model" placeholder="Es. ABC-200"></div>' +
+    '<div class="form-field"><label>Posizione / Zona</label><input id="eq-loc" placeholder="Es. Piano terra, locale caldaia"></div>' +
+    '<div class="form-field"><label>Data installazione</label><input type="date" id="eq-date"></div>' +
+    '<div class="form-field"><label>Note</label><textarea id="eq-notes" rows="2" placeholder="Informazioni aggiuntive..."></textarea></div>' +
+    '<button class="btn-primary" onclick="saveEquipment(\'' + clientId + '\', null)">Aggiungi impianto</button>' +
+    '<button class="btn-outline" onclick="openClient(\'' + clientId + '\')">Annulla</button>'
+  );
+}
+
+function showEditEquipmentModal(equipId, clientId) {
+  const eq = state.currentEquipment.find(e => e.id === equipId);
+  if (!eq) { showToast('Impianto non trovato', 'error'); return; }
+  const types = Object.keys(EQ_TYPE_LABELS);
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div class="modal-title">Modifica impianto</div>' +
+    '<div class="form-field"><label>Tipo impianto *</label><select id="eq-type">' +
+    types.map(t => '<option value="' + t + '"' + (eq.type === t ? ' selected' : '') + '>' + EQ_TYPE_LABELS[t] + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-field"><label>Quantita</label><input type="number" id="eq-qty" value="' + (eq.quantity || 1) + '" min="1"></div>' +
+    '<div class="form-field"><label>Marca</label><input id="eq-brand" value="' + esc(eq.brand) + '" placeholder="Es. Sicurit"></div>' +
+    '<div class="form-field"><label>Modello</label><input id="eq-model" value="' + esc(eq.model) + '" placeholder="Es. ABC-200"></div>' +
+    '<div class="form-field"><label>Posizione / Zona</label><input id="eq-loc" value="' + esc(eq.location) + '" placeholder="Es. Piano terra, locale caldaia"></div>' +
+    '<div class="form-field"><label>Data installazione</label><input type="date" id="eq-date" value="' + (eq.installation_date || '') + '"></div>' +
+    '<div class="form-field"><label>Note</label><textarea id="eq-notes" rows="2">' + esc(eq.notes) + '</textarea></div>' +
+    '<button class="btn-primary" onclick="saveEquipment(\'' + clientId + '\', \'' + equipId + '\')">Salva modifiche</button>' +
+    '<button class="btn-outline" onclick="openClient(\'' + clientId + '\')">Annulla</button>'
+  );
+}
+
+async function saveEquipment(clientId, equipId) {
+  const type = el('eq-type')?.value;
+  const qty = parseInt(el('eq-qty')?.value || '1');
+  if (!type) { showToast('Seleziona il tipo impianto', 'error'); return; }
+  showLoading(true);
+  const payload = {
+    client_id: clientId,
+    type,
+    quantity: qty || 1,
+    brand: el('eq-brand')?.value.trim() || null,
+    model: el('eq-model')?.value.trim() || null,
+    location: el('eq-loc')?.value.trim() || null,
+    installation_date: el('eq-date')?.value || null,
+    notes: el('eq-notes')?.value.trim() || null,
+  };
+  let error;
+  if (equipId) {
+    ({ error } = await db.from('equipment').update(payload).eq('id', equipId));
+  } else {
+    ({ error } = await db.from('equipment').insert(payload));
+  }
+  showLoading(false);
+  if (error) { showToast('Errore nel salvataggio', 'error'); return; }
+  showToast(equipId ? 'Impianto aggiornato' : 'Impianto aggiunto', 'success');
+  await openClient(clientId);
+}
+
+async function deleteEquipment(equipId, clientId) {
+  if (!confirm('Eliminare questo impianto? L\'operazione non e reversibile.')) return;
+  showLoading(true);
+  const { error } = await db.from('equipment').delete().eq('id', equipId);
+  showLoading(false);
+  if (error) { showToast('Errore nell\'eliminazione', 'error'); return; }
+  showToast('Impianto eliminato', 'success');
+  await openClient(clientId);
+}
+
+// ─── AGGIUNGI CLIENTE ─────────────────────────────────────────────────────────
 function showAddClientModal() {
   showModal(
     '<div class="modal-handle"></div>' +
@@ -363,15 +620,15 @@ async function saveNewClient() {
   await loadClienti();
 }
 
+// ─── NUOVO INTERVENTO ─────────────────────────────────────────────────────────
 function showNewInterventionModal(preselectedClientId = null) {
   const clientOptions = state.clients.map(c =>
     '<option value="' + c.id + '"' + (c.id === preselectedClientId ? ' selected' : '') + '>' + c.name + '</option>'
   ).join('');
-  const eqTypes = ['estintori', 'idranti', 'irai', 'evac', 'sprinkler', 'porte_rei'];
+  const eqTypes = Object.keys(EQ_TYPE_LABELS);
   const eqCheckboxes = eqTypes.map(t =>
     '<label class="checkbox-label"><input type="checkbox" name="eq" value="' + t + '"' +
-    (['estintori', 'idranti'].includes(t) ? ' checked' : '') + '> ' +
-    t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ') + '</label>'
+    (['estintori', 'idranti'].includes(t) ? ' checked' : '') + '> ' + EQ_TYPE_LABELS[t] + '</label>'
   ).join('');
   showModal(
     '<div class="modal-handle"></div>' +
@@ -417,6 +674,7 @@ async function createIntervention() {
   await openIntervention(data.id);
 }
 
+// ─── APRI INTERVENTO ──────────────────────────────────────────────────────────
 async function openIntervention(interventionId) {
   showLoading(true);
   state.currentInterventionId = interventionId;
@@ -428,6 +686,7 @@ async function openIntervention(interventionId) {
   showLoading(false);
   if (!inv) return;
   state.currentInterventionType = inv.type;
+  state.currentEquipmentTypes = inv.equipment_types || [];
   (responses || []).forEach(r => {
     state.checklistResponses[r.item_id] = { status: r.status, note: r.note || '', photo_path: r.photo_url || '' };
   });
@@ -435,14 +694,14 @@ async function openIntervention(interventionId) {
   el('topbar-title').textContent = inv.clients?.name || 'Intervento';
   el('topbar-subtitle').textContent = formatDate(inv.date) + ' - ' + inv.type;
   el('btn-back').classList.remove('hidden');
-  const total = inv.equipment_types.flatMap(t => CHECKLISTS[t] || []).length;
+  const total = state.currentEquipmentTypes.flatMap(t => CHECKLISTS[t] || []).length;
   const done = Object.values(state.checklistResponses).filter(r => r.status !== 'pending').length;
   el('interv-header-name').textContent = inv.clients?.name || '';
   el('interv-header-date').textContent = formatDate(inv.date) + ' - n. ' + inv.report_number;
   updateProgress(done, total);
   el('intervento-tabs').innerHTML = inv.equipment_types.map((t, i) =>
     '<button class="tab-btn' + (i === 0 ? ' active' : '') + '" data-tab="' + t + '" onclick="switchTab(this,\'' + t + '\')">' +
-    t.charAt(0).toUpperCase() + t.slice(1).replace('_', ' ') + '</button>'
+    (EQ_TYPE_LABELS[t] || t) + '</button>'
   ).join('');
   state.currentTab = inv.equipment_types[0];
   renderChecklist(state.currentTab);
@@ -463,6 +722,10 @@ function renderChecklist(tab) {
   if (!content) return;
   if (isP1 && tab !== 'irai') {
     content.innerHTML = '<div style="background:#fffbeb;border-left:3px solid #f59e0b;border-radius:0 10px 10px 0;padding:10px 13px;margin-bottom:12px;font-size:13px;color:#78350f"><strong>Presa in Consegna (P1) - UNI 11224</strong><br>Seleziona la tab IRAI per compilare la checklist P1.</div>';
+    return;
+  }
+  if (!items.length) {
+    content.innerHTML = '<div style="padding:24px;text-align:center;font-size:14px;color:var(--gray-500)">Nessuna voce checklist per questo tipo di impianto.</div>';
     return;
   }
   content.innerHTML = items.map(item => {
@@ -508,8 +771,11 @@ async function setStatus(itemId, status) {
     row.querySelector('.btn-' + status)?.classList.add('active');
   }
   if (note) note.classList.toggle('visible', status === 'anomaly');
+  // Calcola totale corretto per questa specifica lista impianti
+  const equipTypes = state.currentInterventionType === 'p1' ? ['p1_irai'] : state.currentEquipmentTypes;
+  const total = equipTypes.flatMap(t => CHECKLISTS[t] || []).length;
   const done = Object.values(state.checklistResponses).filter(r => r.status !== 'pending').length;
-  updateProgress(done, Object.values(CHECKLISTS).flat().length);
+  updateProgress(done, total);
   await db.from('checklist_responses').upsert({
     intervention_id: state.currentInterventionId,
     item_id: itemId,
@@ -520,9 +786,10 @@ async function setStatus(itemId, status) {
   }, { onConflict: 'intervention_id,item_id' });
   if (status === 'anomaly') {
     const item = Object.values(CHECKLISTS).flat().find(i => i.id === itemId);
+    const clientId = await getClientIdForIntervention();
     await db.from('anomalies').upsert({
       intervention_id: state.currentInterventionId,
-      client_id: await getClientIdForIntervention(),
+      client_id: clientId,
       item_id: itemId,
       equipment_type: state.currentTab,
       description: item?.desc || itemId,
@@ -555,7 +822,6 @@ async function uploadAnomalyPhoto(itemId, input) {
     const path = state.org.id + '/' + state.currentInterventionId + '/' + itemId + '.' + ext;
     const { error } = await db.storage.from('reports').upload(path, resized, { upsert: true, contentType: resized.type });
     if (error) throw error;
-    // Salva il percorso fisico (non l'URL firmato che scade)
     state.checklistResponses[itemId] = { ...state.checklistResponses[itemId], photo_path: path };
     await db.from('checklist_responses').upsert({
       intervention_id: state.currentInterventionId,
@@ -600,6 +866,7 @@ function updateProgress(done, total) {
   if (lbl) lbl.textContent = 'Completato ' + done + '/' + total + ' controlli';
 }
 
+// ─── FIRMA E COMPLETAMENTO ────────────────────────────────────────────────────
 async function completeIntervention() {
   showSignatureModal();
 }
@@ -715,6 +982,7 @@ async function generateSchedules() {
   if (toInsert.length) await db.from('schedules').insert(toInsert);
 }
 
+// ─── SCADENZARIO ──────────────────────────────────────────────────────────────
 async function loadScadenzario() {
   showLoading(true);
   const { data } = await db.from('schedules').select('*, clients(name, city)').eq('organization_id', state.org?.id).neq('status', 'completed').order('next_date');
@@ -760,9 +1028,10 @@ function renderScadenzario(scadenze, filter) {
   }).join('');
 }
 
+// ─── VERBALI ──────────────────────────────────────────────────────────────────
 async function loadVerbali() {
   showLoading(true);
-  const { data } = await db.from('interventions').select('*, clients(name, city)').eq('organization_id', state.org?.id).in('status', ['completed', 'signed']).order('date', { ascending: false });
+  const { data } = await db.from('interventions').select('*, clients(name, city, email)').eq('organization_id', state.org?.id).in('status', ['completed', 'signed']).order('date', { ascending: false });
   showLoading(false);
   const cont = el('verbali-list');
   if (!data?.length) {
@@ -777,12 +1046,143 @@ async function loadVerbali() {
     '</div>' + statusBadge(inv.outcome || inv.status) + '</div>' +
     '<div class="verbale-client">' + (inv.clients?.name || '—') + '</div>' +
     '<div class="verbale-footer">' +
-    '<span style="font-size:12px;color:var(--gray-500)">' + (inv.equipment_types || []).join(', ') + '</span>' +
+    '<span style="font-size:12px;color:var(--gray-500)">' + (inv.equipment_types || []).map(t => EQ_TYPE_LABELS[t] || t).join(', ') + '</span>' +
     '<button class="btn-text" onclick="event.stopPropagation();generatePDF(\'' + inv.id + '\')">Scarica PDF</button>' +
     '</div></div>'
   ).join('');
 }
 
+// ─── DETTAGLIO VERBALE ────────────────────────────────────────────────────────
+async function showVerbaleDetail(interventionId) {
+  showLoading(true);
+  const [{ data: inv }, { data: anom }] = await Promise.all([
+    db.from('interventions').select('*, clients(name, address, city, email), profiles(full_name, cert_number)').eq('id', interventionId).single(),
+    db.from('anomalies').select('*').eq('intervention_id', interventionId),
+  ]);
+  showLoading(false);
+  if (!inv) return;
+
+  const clientEmail = inv.clients?.email || '';
+  const impianti = (inv.equipment_types || []).map(t => EQ_TYPE_LABELS[t] || t).join(', ');
+  const anomHtml = anom?.length
+    ? '<div style="background:#fef2f2;border-left:3px solid #dc2626;border-radius:0 8px 8px 0;padding:10px 12px;margin-top:14px">' +
+      '<div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px">Anomalie rilevate (' + anom.length + ')</div>' +
+      anom.map(a => {
+        const sevLabel = { critical:'Critica', high:'Alta', medium:'Media', low:'Bassa' }[a.severity] || '';
+        return '<div style="font-size:12px;color:var(--gray-700);padding:4px 0;border-bottom:1px solid #fecaca">' +
+          '<strong>' + capitalize(a.equipment_type) + '</strong> · ' + sevLabel + '<br>' +
+          '<span style="color:var(--gray-600)">' + a.description + '</span>' +
+          '</div>';
+      }).join('') + '</div>'
+    : '';
+
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">' +
+    '<div class="modal-title" style="margin-bottom:0">Verbale n. ' + (inv.report_number || '—') + '</div>' +
+    statusBadge(inv.outcome || inv.status) +
+    '</div>' +
+    '<p style="font-size:13px;color:var(--gray-500);margin-bottom:16px">' + formatDate(inv.date) + ' · ' + capitalize(inv.type) + '</p>' +
+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
+    infoRow('Cliente', inv.clients?.name || '—') +
+    infoRow('Indirizzo', [inv.clients?.address, inv.clients?.city].filter(Boolean).join(', ') || '—') +
+    infoRow('Tecnico', inv.profiles?.full_name || '—') +
+    infoRow('Cert. VVF', inv.profiles?.cert_number || '—') +
+    infoRow('Impianti', impianti) +
+    infoRow('Esito', outcomeLabel(inv.outcome)) +
+    '</div>' +
+    anomHtml +
+
+    '<div style="display:flex;gap:8px;margin-top:18px">' +
+    '<button class="btn-primary" style="flex:1" onclick="generatePDF(\'' + interventionId + '\')">Scarica PDF</button>' +
+    '<button class="btn-secondary" style="flex:1;margin-top:0" onclick="showSendEmailModal(\'' + interventionId + '\',\'' + esc(clientEmail) + '\')">Invia via email</button>' +
+    '</div>' +
+    '<button class="btn-outline" onclick="closeModal()">Chiudi</button>'
+  );
+}
+
+function infoRow(label, value) {
+  return '<div style="background:var(--gray-50,#f9fafb);border-radius:8px;padding:8px 10px">' +
+    '<div style="font-size:11px;color:var(--gray-500);margin-bottom:2px">' + label + '</div>' +
+    '<div style="font-size:13px;font-weight:600;color:var(--gray-800)">' + (value || '—') + '</div>' +
+    '</div>';
+}
+
+// ─── INVIO EMAIL VERBALE ──────────────────────────────────────────────────────
+function showSendEmailModal(interventionId, prefilledEmail) {
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div class="modal-title">Invia verbale via email</div>' +
+    '<p style="font-size:14px;color:var(--gray-600);margin-bottom:16px">Il PDF del verbale verra generato e inviato all\'indirizzo indicato.</p>' +
+    '<div class="form-field"><label>Email destinatario *</label><input id="send-email-addr" type="email" value="' + esc(prefilledEmail) + '" placeholder="cliente@azienda.it"></div>' +
+    '<div id="email-send-msg" style="font-size:13px;margin-bottom:10px;display:none"></div>' +
+    '<button class="btn-primary" onclick="sendVerbaleEmail(\'' + interventionId + '\')">Invia</button>' +
+    '<button class="btn-outline" onclick="showVerbaleDetail(\'' + interventionId + '\')">Annulla</button>'
+  );
+}
+
+async function sendVerbaleEmail(interventionId) {
+  const emailAddr = el('send-email-addr')?.value.trim();
+  if (!emailAddr || !emailAddr.includes('@')) { showToast('Inserisci un\'email valida', 'error'); return; }
+  const msgEl = el('email-send-msg');
+
+  // 1. Genera PDF in memoria e carica su Storage
+  showLoading(true);
+  try {
+    const pdfBlob = await generatePDFBlob(interventionId);
+    if (!pdfBlob) throw new Error('PDF non generato');
+
+    // Carica su Supabase Storage
+    const storagePath = state.org.id + '/verbali/' + interventionId + '.pdf';
+    await db.storage.from('reports').upload(storagePath, pdfBlob, { upsert: true, contentType: 'application/pdf' });
+
+    // Aggiorna pdf_url nel DB
+    await db.from('interventions').update({ pdf_url: storagePath }).eq('id', interventionId);
+
+    // 2. Chiama la Edge Function (se deployata)
+    const { error: fnError } = await db.functions.invoke('send-verbale-email', {
+      body: { intervention_id: interventionId, recipient_email: emailAddr, pdf_storage_path: storagePath }
+    });
+    showLoading(false);
+
+    if (fnError) {
+      // Edge Function non ancora deployata: scarica comunque il PDF
+      if (msgEl) {
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#d97706';
+        msgEl.innerHTML = '⚠️ Funzione email non ancora configurata sul server.<br>' +
+          'Il PDF e stato caricato — <strong>scaricalo e invialo manualmente</strong> al cliente.';
+      }
+      // Scarica il PDF in locale come fallback
+      await generatePDF(interventionId);
+    } else {
+      if (msgEl) {
+        msgEl.style.display = 'block';
+        msgEl.style.color = 'var(--green-600)';
+        msgEl.textContent = 'Email inviata correttamente a ' + emailAddr;
+      }
+      showToast('Email inviata', 'success');
+    }
+  } catch (err) {
+    showLoading(false);
+    console.error('Send email error:', err);
+    showToast('Errore. Scarica il PDF e invialo manualmente.', 'error');
+  }
+}
+
+// ─── GENERAZIONE PDF ──────────────────────────────────────────────────────────
+// Versione che ritorna un Blob (usata dall'invio email)
+async function generatePDFBlob(interventionId) {
+  const [{ data: inv }, { data: responses }, { data: anom }] = await Promise.all([
+    db.from('interventions').select('*, clients(*), profiles(full_name, cert_number)').eq('id', interventionId).single(),
+    db.from('checklist_responses').select('*').eq('intervention_id', interventionId),
+    db.from('anomalies').select('*').eq('intervention_id', interventionId),
+  ]);
+  return buildPDFDoc(inv, responses, anom);
+}
+
+// Versione che scarica il PDF (usata dal bottone Scarica)
 async function generatePDF(interventionId) {
   showLoading(true);
   try {
@@ -791,133 +1191,151 @@ async function generatePDF(interventionId) {
       db.from('checklist_responses').select('*').eq('intervention_id', interventionId),
       db.from('anomalies').select('*').eq('intervention_id', interventionId),
     ]);
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const W = 210, M = 15;
-
-    doc.setFillColor(7, 53, 36);
-    doc.rect(0, 0, W, 32, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18); doc.setFont('helvetica', 'bold');
-    doc.text('VERBALE DI MANUTENZIONE ANTINCENDIO', M, 13);
-    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-    doc.text('n. ' + (inv.report_number || '—') + '  -  ' + formatDate(inv.date), M, 22);
-    doc.text(state.org?.name || '', W - M, 22, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
-    let y = 40;
-
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-    doc.text('DATI INTERVENTO', M, y); y += 7;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    const details = [
-      ['Cliente', inv.clients?.name || '—'],
-      ['Indirizzo', [inv.clients?.address, inv.clients?.city].filter(Boolean).join(', ') || '—'],
-      ['Data', formatDate(inv.date)],
-      ['Tipo', capitalize(inv.type)],
-      ['Tecnico', inv.profiles?.full_name || '—'],
-      ['Cert. VVF', inv.profiles?.cert_number || '—'],
-      ['Impianti', (inv.equipment_types || []).map(capitalize).join(', ')],
-      ['Esito', outcomeLabel(inv.outcome)],
-    ];
-    details.forEach(([k, v]) => {
-      doc.setFont('helvetica', 'bold'); doc.text(k + ':', M, y);
-      doc.setFont('helvetica', 'normal'); doc.text(v, M + 38, y);
-      y += 6;
-    });
-    y += 4;
-    doc.setLineWidth(0.3); doc.setDrawColor(220, 220, 220);
-    doc.line(M, y, W - M, y); y += 6;
-
-    for (const eqType of inv.equipment_types) {
-      const items = CHECKLISTS[eqType] || [];
-      if (!items.length) continue;
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-      doc.text(capitalize(eqType).toUpperCase(), M, y); y += 6;
-      for (const item of items) {
-        if (y > 250) { doc.addPage(); y = 20; }
-        const r = responses?.find(r => r.item_id === item.id);
-        const statusTxt = r?.status === 'ok' ? 'OK' : r?.status === 'anomaly' ? 'AN' : r?.status === 'na' ? 'N/A' : '---';
-        const statusCol = r?.status === 'ok' ? [22, 160, 94] : r?.status === 'anomaly' ? [220, 38, 38] : [107, 114, 128];
-        doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0);
-        const lines = doc.splitTextToSize(item.desc, 138);
-        doc.text(lines, M + 5, y);
-        doc.setFont('helvetica', 'italic'); doc.setTextColor(120, 120, 120);
-        doc.text(item.norm, M + 5, y + lines.length * 4);
-        doc.setFillColor(...statusCol);
-        doc.roundedRect(W - M - 18, y - 4, 18, 8, 2, 2, 'F');
-        doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
-        doc.text(statusTxt, W - M - 9, y + 0.5, { align: 'center' });
-        doc.setTextColor(0, 0, 0);
-        if (r?.note) {
-          doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(180, 50, 50);
-          doc.text('Nota: ' + r.note, M + 5, y + lines.length * 4 + 4);
-          y += 5;
-        }
-        // Foto anomalia: genera URL firmato fresco dal percorso fisico salvato
-        if (r?.photo_url) {
-          try {
-            const { data: freshUrl } = await db.storage.from('reports').createSignedUrl(r.photo_url, 300);
-            if (freshUrl?.signedUrl) {
-              const imgData = await fetchImageAsBase64(freshUrl.signedUrl);
-              if (imgData) {
-                if (y > 220) { doc.addPage(); y = 20; }
-                doc.addImage(imgData, 'JPEG', M + 5, y + lines.length * 4 + 6, 60, 40);
-                y += 46;
-              }
-            }
-          } catch (e) { /* foto non disponibile, continua */ }
-        }
-        y += lines.length * 4 + 9;
-      }
-      y += 3;
+    const blob = await buildPDFDoc(inv, responses, anom);
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'verbale_' + (inv.report_number?.replace('/', '_') || interventionId) + '.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('PDF scaricato', 'success');
     }
-
-    if (anom?.length) {
-      if (y > 230) { doc.addPage(); y = 20; }
-      doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5);
-      doc.line(M, y, W - M, y); y += 6;
-      doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(180, 30, 30);
-      doc.text('ANOMALIE RILEVATE', M, y); y += 6;
-      doc.setTextColor(0, 0, 0);
-      anom.forEach((a, idx) => {
-        if (y > 265) { doc.addPage(); y = 20; }
-        const sev = { critical: 'CRITICA', high: 'ALTA', medium: 'MEDIA', low: 'BASSA' }[a.severity] || '';
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-        doc.text((idx + 1) + '. ' + capitalize(a.equipment_type) + ' - Gravita: ' + sev, M, y); y += 5;
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-        const lines = doc.splitTextToSize(a.description, W - M * 2);
-        doc.text(lines, M, y); y += lines.length * 4 + 4;
-      });
-    }
-
-    const pageCount = doc.getNumberOfPages();
-    for (let p = 1; p <= pageCount; p++) {
-      doc.setPage(p);
-      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
-      doc.text('Pagina ' + p + '/' + pageCount + '  -  Generato da FireApp  -  ' + new Date().toLocaleDateString('it-IT'), W / 2, 292, { align: 'center' });
-    }
-
-    const lastPage = doc.getNumberOfPages();
-    doc.setPage(lastPage);
-    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3);
-    doc.line(M, 275, 100, 275);
-    doc.line(115, 275, W - M, 275);
-    doc.setFontSize(8); doc.setTextColor(120, 120, 120);
-    doc.text('Firma tecnico', M, 280);
-    doc.text('Firma cliente / referente', 115, 280);
-    if (inv.client_signature) {
-      try { doc.addImage(inv.client_signature, 'PNG', 115, 255, 70, 18); } catch (e) { /* firma non valida */ }
-    }
-
-    doc.save('verbale_' + (inv.report_number?.replace('/', '_') || interventionId) + '.pdf');
-    showToast('PDF scaricato', 'success');
-
   } catch (err) {
     console.error('PDF error:', err);
     showToast('Errore generazione PDF', 'error');
   } finally {
     showLoading(false);
   }
+}
+
+async function buildPDFDoc(inv, responses, anom) {
+  if (!inv) return null;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, M = 15;
+
+  // Header
+  doc.setFillColor(7, 53, 36);
+  doc.rect(0, 0, W, 32, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18); doc.setFont('helvetica', 'bold');
+  doc.text('VERBALE DI MANUTENZIONE ANTINCENDIO', M, 13);
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+  doc.text('n. ' + (inv.report_number || '—') + '  -  ' + formatDate(inv.date), M, 22);
+  doc.text(state.org?.name || '', W - M, 22, { align: 'right' });
+  doc.setTextColor(0, 0, 0);
+  let y = 40;
+
+  // Dati intervento
+  doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+  doc.text('DATI INTERVENTO', M, y); y += 7;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  const details = [
+    ['Cliente', inv.clients?.name || '—'],
+    ['Indirizzo', [inv.clients?.address, inv.clients?.city].filter(Boolean).join(', ') || '—'],
+    ['Data', formatDate(inv.date)],
+    ['Tipo', capitalize(inv.type)],
+    ['Tecnico', inv.profiles?.full_name || '—'],
+    ['Cert. VVF', inv.profiles?.cert_number || '—'],
+    ['Impianti', (inv.equipment_types || []).map(t => EQ_TYPE_LABELS[t] || capitalize(t)).join(', ')],
+    ['Esito', outcomeLabel(inv.outcome)],
+  ];
+  details.forEach(([k, v]) => {
+    doc.setFont('helvetica', 'bold'); doc.text(k + ':', M, y);
+    doc.setFont('helvetica', 'normal'); doc.text(v, M + 38, y);
+    y += 6;
+  });
+  y += 4;
+  doc.setLineWidth(0.3); doc.setDrawColor(220, 220, 220);
+  doc.line(M, y, W - M, y); y += 6;
+
+  // Checklist per impianto
+  for (const eqType of inv.equipment_types) {
+    const items = CHECKLISTS[eqType] || [];
+    if (!items.length) continue;
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text((EQ_TYPE_LABELS[eqType] || eqType).toUpperCase(), M, y); y += 6;
+    for (const item of items) {
+      if (y > 250) { doc.addPage(); y = 20; }
+      const r = responses?.find(r => r.item_id === item.id);
+      const statusTxt = r?.status === 'ok' ? 'OK' : r?.status === 'anomaly' ? 'AN' : r?.status === 'na' ? 'N/A' : '---';
+      const statusCol = r?.status === 'ok' ? [22, 160, 94] : r?.status === 'anomaly' ? [220, 38, 38] : [107, 114, 128];
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0);
+      const lines = doc.splitTextToSize(item.desc, 138);
+      doc.text(lines, M + 5, y);
+      doc.setFont('helvetica', 'italic'); doc.setTextColor(120, 120, 120);
+      doc.text(item.norm, M + 5, y + lines.length * 4);
+      doc.setFillColor(...statusCol);
+      doc.roundedRect(W - M - 18, y - 4, 18, 8, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
+      doc.text(statusTxt, W - M - 9, y + 0.5, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+      if (r?.note) {
+        doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(180, 50, 50);
+        doc.text('Nota: ' + r.note, M + 5, y + lines.length * 4 + 4);
+        y += 5;
+      }
+      // Foto anomalia: genera URL firmato fresco
+      if (r?.photo_url) {
+        try {
+          const { data: freshUrl } = await db.storage.from('reports').createSignedUrl(r.photo_url, 300);
+          if (freshUrl?.signedUrl) {
+            const imgData = await fetchImageAsBase64(freshUrl.signedUrl);
+            if (imgData) {
+              if (y > 220) { doc.addPage(); y = 20; }
+              doc.addImage(imgData, 'JPEG', M + 5, y + lines.length * 4 + 6, 60, 40);
+              y += 46;
+            }
+          }
+        } catch (e) { /* foto non disponibile */ }
+      }
+      y += lines.length * 4 + 9;
+    }
+    y += 3;
+  }
+
+  // Anomalie
+  if (anom?.length) {
+    if (y > 230) { doc.addPage(); y = 20; }
+    doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5);
+    doc.line(M, y, W - M, y); y += 6;
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(180, 30, 30);
+    doc.text('ANOMALIE RILEVATE', M, y); y += 6;
+    doc.setTextColor(0, 0, 0);
+    anom.forEach((a, idx) => {
+      if (y > 265) { doc.addPage(); y = 20; }
+      const sev = { critical: 'CRITICA', high: 'ALTA', medium: 'MEDIA', low: 'BASSA' }[a.severity] || '';
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+      doc.text((idx + 1) + '. ' + (EQ_TYPE_LABELS[a.equipment_type] || capitalize(a.equipment_type)) + ' - Gravita: ' + sev, M, y); y += 5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      const lines = doc.splitTextToSize(a.description, W - M * 2);
+      doc.text(lines, M, y); y += lines.length * 4 + 4;
+    });
+  }
+
+  // Footer con numero pagina
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+    doc.text('Pagina ' + p + '/' + pageCount + '  -  Generato da FireApp  -  ' + new Date().toLocaleDateString('it-IT'), W / 2, 292, { align: 'center' });
+  }
+
+  // Firma
+  const lastPage = doc.getNumberOfPages();
+  doc.setPage(lastPage);
+  doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3);
+  doc.line(M, 275, 100, 275);
+  doc.line(115, 275, W - M, 275);
+  doc.setFontSize(8); doc.setTextColor(120, 120, 120);
+  doc.text('Firma tecnico', M, 280);
+  doc.text('Firma cliente / referente', 115, 280);
+  if (inv.client_signature) {
+    try { doc.addImage(inv.client_signature, 'PNG', 115, 255, 70, 18); } catch (e) { /* firma non valida */ }
+  }
+
+  return doc.output('blob');
 }
 
 async function fetchImageAsBase64(url) {
@@ -931,6 +1349,7 @@ async function fetchImageAsBase64(url) {
   });
 }
 
+// ─── UTILITY ──────────────────────────────────────────────────────────────────
 function formatDate(d) {
   if (!d) return '—';
   return new Date(d + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -939,6 +1358,11 @@ function formatDate(d) {
 function capitalize(s) {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
+}
+
+function esc(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function addDays(dateStr, days) {
@@ -1001,6 +1425,7 @@ function categoryIcon(cat) {
 }
 
 async function getOrgClientIds() {
+  if (state.clients.length) return state.clients.map(c => c.id);
   const { data } = await db.from('clients').select('id').eq('organization_id', state.org?.id);
   return (data || []).map(c => c.id);
 }
@@ -1033,11 +1458,6 @@ function showToast(msg, type) {
 
 function showLoading(show) {
   el('loading').classList.toggle('hidden', !show);
-}
-
-function scrollToSection(id) {
-  const target = document.getElementById(id);
-  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 document.addEventListener('DOMContentLoaded', init);
