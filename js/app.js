@@ -141,7 +141,11 @@ async function init() {
   }
 
   db.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session?.user && !state.user) {
+    if (event === 'PASSWORD_RECOVERY') {
+      // Mostra modal per impostare la nuova password
+      showApp();
+      showPasswordUpdateModal();
+    } else if (event === 'SIGNED_IN' && session?.user && !state.user) {
       state.user = session.user;
       await loadProfile();
       showApp();
@@ -177,6 +181,9 @@ async function loadProfile() {
   state.org = data.organizations;
   const badge = el('user-badge');
   if (badge && data.full_name) badge.textContent = data.full_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  // Mostra tab Team solo agli admin
+  const teamNavItem = document.querySelector('.nav-item[data-screen="team"]');
+  if (teamNavItem) teamNavItem.style.display = data.role === 'admin' ? '' : 'none';
 }
 
 function showLogin() {
@@ -246,18 +253,58 @@ function showResetPasswordModal() {
 async function sendResetPassword() {
   const email = el('reset-email')?.value.trim();
   if (!email) { showToast('Inserisci la tua email', 'error'); return; }
-  showLoading(true);
-  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
-  showLoading(false);
-  if (error) { showToast('Errore nell\'invio. Verifica l\'email.', 'error'); return; }
+  const btn = document.querySelector('#modal-content .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Invio in corso...'; }
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/index.html',
+  });
+  if (btn) { btn.disabled = false; btn.textContent = 'Invia link di reset'; }
+  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
   const msg = el('reset-msg');
-  if (msg) { msg.textContent = 'Email inviata! Controlla la tua casella.'; msg.style.display = 'block'; }
+  if (msg) { msg.textContent = '✓ Email inviata! Controlla la tua casella (anche lo spam).'; msg.style.display = 'block'; }
+}
+
+function showPasswordUpdateModal() {
+  showModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Imposta nuova password</div>
+    <p style="font-size:14px;color:var(--gray-600);margin-bottom:18px">Inserisci la nuova password per il tuo account.</p>
+    <div class="form-field">
+      <label>Nuova password</label>
+      <input id="new-pwd" type="password" placeholder="Minimo 8 caratteri">
+    </div>
+    <div class="form-field">
+      <label>Conferma password</label>
+      <input id="new-pwd2" type="password" placeholder="Ripeti la password">
+    </div>
+    <div id="pwd-update-msg" style="font-size:13px;margin-bottom:10px;display:none"></div>
+    <button class="btn-primary" onclick="updatePassword()">Salva nuova password</button>
+  `);
+}
+
+async function updatePassword() {
+  const p1 = el('new-pwd')?.value;
+  const p2 = el('new-pwd2')?.value;
+  const msg = el('pwd-update-msg');
+  if (!p1 || p1.length < 8) { showToast('Password minimo 8 caratteri', 'error'); return; }
+  if (p1 !== p2) {
+    if (msg) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Le password non coincidono.'; }
+    return;
+  }
+  showLoading(true);
+  const { error } = await db.auth.updateUser({ password: p1 });
+  showLoading(false);
+  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+  closeModal();
+  showToast('Password aggiornata. Rieffettua il login.', 'success');
+  setTimeout(() => db.auth.signOut(), 1500);
 }
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
 const SCREEN_TITLES = {
   dashboard: 'Dashboard', clienti: 'Clienti',
-  intervento: 'Intervento', scadenzario: 'Scadenzario', verbali: 'Verbali'
+  intervento: 'Intervento', scadenzario: 'Scadenzario',
+  verbali: 'Verbali', team: 'Team',
 };
 
 function navigate(screen, pushHistory = true) {
@@ -278,6 +325,10 @@ function navigate(screen, pushHistory = true) {
   if (screen === 'clienti') loadClienti();
   if (screen === 'scadenzario') loadScadenzario();
   if (screen === 'verbali') loadVerbali();
+  if (screen === 'team') loadTeam();
+  // Mostra il tab Team solo agli admin
+  const teamNavItem = document.querySelector('.nav-item[data-screen="team"]');
+  if (teamNavItem) teamNavItem.style.display = state.profile?.role === 'admin' ? '' : 'none';
 }
 
 function goBack() {
@@ -452,6 +503,7 @@ function renderClientModal(client, equip, interventions) {
     '<div class="row-list" style="margin-bottom:14px">' + intervHtml + '</div>' +
 
     '<button class="btn-primary" onclick="closeModal();showNewInterventionModal(\'' + client.id + '\')">+ Nuovo intervento</button>' +
+    '<button class="btn-secondary" style="width:100%;margin-top:8px" onclick="showPresaInCaricoModal(\'' + client.id + '\')">Prendi in carico impianti (P1)</button>' +
     '<button class="btn-outline" onclick="closeModal()">Chiudi</button>'
   );
 }
@@ -1461,3 +1513,153 @@ function showLoading(show) {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ─── TEAM / GESTIONE TECNICI ──────────────────────────────────────────────────
+async function loadTeam() {
+  showLoading(true);
+  const { data: members } = await db
+    .from('profiles')
+    .select('id, full_name, role, cert_number, phone, created_at')
+    .eq('organization_id', state.org?.id)
+    .order('role').order('full_name');
+  showLoading(false);
+  renderTeam(members || []);
+}
+
+function renderTeam(members) {
+  const cont = el('team-list');
+  if (!cont) return;
+  const isAdmin = state.profile?.role === 'admin';
+  if (!members.length) {
+    cont.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>Nessun membro del team.<br>Invita il primo tecnico.</p></div>';
+    return;
+  }
+  cont.innerHTML = '<div class="row-list">' + members.map(m => {
+    const initials = (m.full_name || 'NN').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+    const roleBadge = m.role === 'admin' ? 'badge-amber' : 'badge-blue';
+    const roleLabel = m.role === 'admin' ? 'Admin' : 'Tecnico';
+    const isMe = m.id === state.user?.id;
+    const editBtn = (isAdmin && !isMe)
+      ? '<button class="btn-text" style="font-size:12px" onclick="showEditTeamMemberModal(\'' + m.id + '\',\'' + esc(m.full_name||'') + '\',\'' + m.role + '\')">Modifica</button>'
+      : '';
+    const avatarBg = m.role === 'admin' ? '#0d6040' : '#2563eb';
+    return '<div class="row-item">' +
+      '<div style="width:36px;height:36px;font-size:13px;flex-shrink:0;background:' + avatarBg + ';color:white;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700">' + initials + '</div>' +
+      '<div class="row-body">' +
+        '<div class="row-title">' + esc(m.full_name || 'Senza nome') + (isMe ? ' <span style="font-size:11px;color:var(--gray-400)">(tu)</span>' : '') + '</div>' +
+        '<div class="row-desc">' + [m.cert_number ? 'Cert. '+m.cert_number : '', m.phone || ''].filter(Boolean).join(' · ') + '</div>' +
+      '</div>' +
+      '<div class="row-right" style="display:flex;align-items:center;gap:8px">' +
+        '<span class="badge ' + roleBadge + '">' + roleLabel + '</span>' + editBtn +
+      '</div></div>';
+  }).join('') + '</div>';
+}
+
+function showEditTeamMemberModal(memberId, name, currentRole) {
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div class="modal-title">Modifica — ' + esc(name) + '</div>' +
+    '<div class="form-field"><label>Ruolo</label><select id="tm-role">' +
+    '<option value="technician"' + (currentRole === 'technician' ? ' selected' : '') + '>Tecnico</option>' +
+    '<option value="admin"' + (currentRole === 'admin' ? ' selected' : '') + '>Admin (gestisce il team e i dati)</option>' +
+    '</select></div>' +
+    '<button class="btn-primary" onclick="saveTeamMemberRole(\'' + memberId + '\')">Salva ruolo</button>' +
+    '<button class="btn-danger" style="width:100%;margin-top:8px" onclick="removeTeamMember(\'' + memberId + '\',\'' + esc(name) + '\')">Rimuovi dal team</button>' +
+    '<button class="btn-outline" onclick="closeModal()">Annulla</button>'
+  );
+}
+
+async function saveTeamMemberRole(memberId) {
+  const role = el('tm-role')?.value;
+  showLoading(true);
+  const { error } = await db.from('profiles').update({ role }).eq('id', memberId);
+  showLoading(false);
+  if (error) { showToast('Errore nel salvataggio', 'error'); return; }
+  closeModal();
+  showToast('Ruolo aggiornato', 'success');
+  loadTeam();
+}
+
+async function removeTeamMember(memberId, name) {
+  if (!confirm('Rimuovere ' + name + ' dal team?\nPerdra accesso all\'app ma i suoi dati (interventi, verbali) rimarranno conservati.')) return;
+  showLoading(true);
+  const { error } = await db.from('profiles').update({ organization_id: null, role: 'technician' }).eq('id', memberId);
+  showLoading(false);
+  if (error) { showToast('Errore', 'error'); return; }
+  closeModal();
+  showToast(name + ' rimosso dal team', 'success');
+  loadTeam();
+}
+
+function showInviteTechModal() {
+  const base = window.location.origin;
+  const inviteUrl = base + '/signup.html?join=' + (state.org?.id || '');
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div class="modal-title">Invita tecnico</div>' +
+    '<p style="font-size:14px;color:var(--gray-600);margin-bottom:16px">Condividi questo link con il tecnico. Dopo la registrazione il suo account sara collegato automaticamente al tuo team.</p>' +
+    '<div class="form-field"><label>Link di invito</label>' +
+    '<div style="display:flex;gap:8px"><input id="invite-url" value="' + inviteUrl + '" readonly style="font-size:11px;color:var(--gray-500)">' +
+    '<button class="btn-secondary" style="flex-shrink:0;white-space:nowrap" onclick="copyInviteLink()">Copia</button></div>' +
+    '</div>' +
+    '<div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:10px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#78350f;margin-bottom:16px">' +
+    'Il link e univoco per la tua organizzazione — condividilo solo alle persone di fiducia.' +
+    '</div>' +
+    '<button class="btn-outline" onclick="closeModal()">Chiudi</button>'
+  );
+}
+
+function copyInviteLink() {
+  const input = el('invite-url');
+  if (!input) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(input.value).then(() => showToast('Link copiato', 'success'));
+  } else {
+    input.select(); document.execCommand('copy');
+    showToast('Link copiato', 'success');
+  }
+}
+
+// ─── PRESA IN CARICO (P1 / UNI 11224) ────────────────────────────────────────
+function showPresaInCaricoModal(clientId) {
+  const client = state.clients.find(c => c.id === clientId);
+  if (!client) return;
+  const allTypes = Object.keys(EQ_TYPE_LABELS);
+  const defaultP1 = ['irai','evac','sprinkler','porte_rei'];
+  const checkboxes = allTypes.map(t =>
+    '<label class="checkbox-label"><input type="checkbox" name="p1-eq" value="' + t + '"' +
+    (defaultP1.includes(t) ? ' checked' : '') + '> ' + EQ_TYPE_LABELS[t] + '</label>'
+  ).join('');
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div style="background:var(--green-50,#f0fdf4);border-left:3px solid #16a05e;padding:10px 13px;border-radius:0 8px 8px 0;margin-bottom:16px;font-size:13px;color:#065f46">' +
+    '<strong>Presa in Consegna P1 — UNI 11224:2011</strong><br>Verifica documentale e funzionale completa degli impianti antincendio di <strong>' + esc(client.name) + '</strong>.</div>' +
+    '<div class="form-field"><label>Data intervento</label><input type="date" id="p1-date" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+    '<div class="form-field"><label>Impianti da prendere in carico</label><div class="checkbox-group">' + checkboxes + '</div></div>' +
+    '<button class="btn-primary" onclick="createPresaInCarico(\'' + clientId + '\')">Avvia presa in carico</button>' +
+    '<button class="btn-outline" onclick="openClient(\'' + clientId + '\')">Annulla</button>'
+  );
+}
+
+async function createPresaInCarico(clientId) {
+  const date = el('p1-date')?.value || new Date().toISOString().split('T')[0];
+  const checked = [...document.querySelectorAll('input[name="p1-eq"]:checked')].map(i => i.value);
+  if (!checked.length) { showToast('Seleziona almeno un impianto', 'error'); return; }
+  showLoading(true);
+  const { data: reportNum } = await db.rpc('generate_report_number', { org_id: state.org.id });
+  const { data, error } = await db.from('interventions').insert({
+    organization_id: state.org.id,
+    client_id: clientId,
+    technician_id: state.user.id,
+    date,
+    type: 'p1',
+    equipment_types: checked,
+    status: 'in_progress',
+    report_number: reportNum,
+  }).select().single();
+  showLoading(false);
+  if (error || !data) { showToast('Errore nella creazione', 'error'); return; }
+  closeModal();
+  showToast('Presa in carico avviata', 'success');
+  await openIntervention(data.id);
+}
