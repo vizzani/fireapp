@@ -68,7 +68,14 @@ const FREQ_MONTHS = {
 };
 
 const { createClient } = window.supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    storage: window.localStorage,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  }
+});
 
 let state = {
   user: null,
@@ -90,14 +97,32 @@ async function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(console.warn);
   const params = new URLSearchParams(location.search);
   if (params.get('action') === 'new-intervention') window._pendingAction = 'new-intervention';
+
+  // Controlla sessione esistente al primo caricamento
+  const { data: { session } } = await db.auth.getSession();
+  if (session?.user) {
+    state.user = session.user;
+    await loadProfile();
+    showApp();
+    await loadDashboard();
+  } else {
+    showLogin();
+  }
+
+  // Ascolta solo eventi significativi, non ogni refresh token
   db.auth.onAuthStateChange(async (event, session) => {
-    if (session?.user) {
+    if (event === 'SIGNED_IN' && session?.user && !state.user) {
       state.user = session.user;
       await loadProfile();
       showApp();
       await loadDashboard();
-    } else {
+    } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+      state.user = session.user;
+      if (!state.org) await loadProfile();
+    } else if (event === 'SIGNED_OUT') {
       state.user = null;
+      state.profile = null;
+      state.org = null;
       showLogin();
     }
   });
@@ -1008,6 +1033,11 @@ function showToast(msg, type) {
 
 function showLoading(show) {
   el('loading').classList.toggle('hidden', !show);
+}
+
+function scrollToSection(id) {
+  const target = document.getElementById(id);
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 document.addEventListener('DOMContentLoaded', init);
