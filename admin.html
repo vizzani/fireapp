@@ -329,21 +329,27 @@ function trialDisplay(o, today) {
 }
 
 // FILTERS
-function filterTable(query) {
-  const q = query.toLowerCase();
-  let filtered = allOrgs.filter(o => (o.name||'').toLowerCase().includes(q) || (o.email||'').toLowerCase().includes(q));
+function applyCurrentFilter() {
+  const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+  let filtered = allOrgs.filter(o =>
+    (o.name||'').toLowerCase().includes(q) || (o.email||'').toLowerCase().includes(q)
+  );
   if (activeFilter !== 'all') {
     if (activeFilter === 'sospeso') filtered = filtered.filter(o => !o.active);
     else filtered = filtered.filter(o => o.active && o.status === activeFilter);
   }
-  renderTable(filtered);
+  return filtered;
+}
+
+function filterTable(query) {
+  renderTable(applyCurrentFilter());
 }
 
 function setFilter(filter, btn) {
   activeFilter = filter;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  filterTable(document.getElementById('search-input').value);
+  renderTable(applyCurrentFilter());
 }
 
 // DETAIL
@@ -395,10 +401,15 @@ function openPlan(orgId, name, currentPlan) {
 async function savePlan(orgId) {
   const plan  = document.getElementById('sel-plan').value;
   const seats = PLANS[plan]?.seats || 2;
-  await db.from('organizations').update({ plan, plan_seats: seats }).eq('id', orgId);
+  const { error } = await db.from('organizations').update({ plan }).eq('id', orgId);
+  if (error) { showToast('Errore nel salvataggio', 'error'); return; }
+  // Aggiorna state locale immediatamente — niente flash da re-fetch
+  const idx = allOrgs.findIndex(o => o.id === orgId);
+  if (idx >= 0) allOrgs[idx] = { ...allOrgs[idx], plan };
+  updateStats(allOrgs);
+  renderTable(applyCurrentFilter());
   closeModal();
   showToast('Piano aggiornato: ' + PLANS[plan].label, 'success');
-  loadOrgs();
 }
 
 // EXTEND TRIAL
@@ -415,10 +426,14 @@ function openExtend(orgId, name) {
 
 async function saveExtend(orgId) {
   const days = parseInt(document.getElementById('ext-days').value);
-  await db.rpc('extend_trial', { p_org_id: orgId, p_days: days });
+  const { error } = await db.rpc('extend_trial', { p_org_id: orgId, p_days: days });
+  if (error) { showToast('Errore: ' + (error.message || 'verifica il DB'), 'error'); return; }
+  // Aggiorna trial_days_left localmente
+  const idx = allOrgs.findIndex(o => o.id === orgId);
+  if (idx >= 0) allOrgs[idx] = { ...allOrgs[idx], trial_days_left: (allOrgs[idx].trial_days_left || 0) + days };
+  renderTable(applyCurrentFilter());
   closeModal();
   showToast('Trial esteso di ' + days + ' giorni', 'success');
-  loadOrgs();
 }
 
 // TOGGLE ACTIVE
@@ -435,10 +450,14 @@ function openToggle(orgId, name, active) {
 }
 
 async function saveToggle(orgId, active) {
-  await db.from('organizations').update({ active: !active }).eq('id', orgId);
+  const { error } = await db.from('organizations').update({ active: !active }).eq('id', orgId);
+  if (error) { showToast('Errore nel salvataggio', 'error'); return; }
+  const idx = allOrgs.findIndex(o => o.id === orgId);
+  if (idx >= 0) allOrgs[idx] = { ...allOrgs[idx], active: !active };
+  updateStats(allOrgs);
+  renderTable(applyCurrentFilter());
   closeModal();
   showToast(active ? 'Account sospeso' : 'Account riattivato', 'success');
-  loadOrgs();
 }
 
 // EMAIL
