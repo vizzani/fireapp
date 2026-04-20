@@ -249,7 +249,7 @@ async function adminLogin() {
   const { data, error } = await db.auth.signInWithPassword({ email, password: pwd });
   if (error) { document.getElementById('adm-err').textContent = 'Credenziali non valide'; return; }
   const { data: profile } = await db.from('profiles').select('role').eq('id', data.user.id).single();
-  if (profile?.role !== 'admin') {
+  if (profile?.role !== 'admin' && profile?.role !== 'superadmin') {
     await db.auth.signOut();
     document.getElementById('adm-err').textContent = 'Accesso non autorizzato';
     return;
@@ -358,27 +358,102 @@ async function openDetail(orgId) {
   if (!org) return;
   currentOrg = org;
   const plan = PLANS[org.plan] || PLANS.trial;
+  const base = window.location.origin;
+  const inviteUrl = base + '/signup.html?join=' + org.id;
 
   document.getElementById('modal-title').textContent = org.name;
   document.getElementById('modal-actions').innerHTML =
     '<button class="modal-btn modal-btn-cancel" onclick="closeModal()">Chiudi</button>';
 
+  // Render scheletro con tab Info / Tecnici
   document.getElementById('modal-body').innerHTML =
-    '<div class="detail-grid">' +
-      '<div class="detail-box"><div class="detail-box-label">Piano</div><div class="detail-box-val"><span class="badge ' + plan.badge + '">' + plan.label + '</span></div></div>' +
-      '<div class="detail-box"><div class="detail-box-label">Tecnici max</div><div class="detail-box-val">' + (plan.seats >= 999 ? 'Illimitati' : plan.seats) + '</div></div>' +
-      '<div class="detail-box"><div class="detail-box-label">Clienti gestiti</div><div class="detail-box-val">' + (org.clients_count||0) + '</div></div>' +
-      '<div class="detail-box"><div class="detail-box-label">Interventi totali</div><div class="detail-box-val">' + (org.interventions_count||0) + '</div></div>' +
+    '<div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)">' +
+      '<button id="tab-info-btn" onclick="switchDetailTab('info')" style="padding:8px 16px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--green-light);color:var(--ink);font-family:var(--font)">Info</button>' +
+      '<button id="tab-tech-btn" onclick="switchDetailTab('tech')" style="padding:8px 16px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink-muted);font-family:var(--font)">Tecnici</button>' +
     '</div>' +
-    '<div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px">Email: ' + (org.email||'—') + '</div>' +
-    '<div style="font-size:13px;color:var(--ink-muted);margin-bottom:16px">Registrazione: ' + new Date(org.created_at).toLocaleDateString('it-IT') + '</div>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-      '<button class="modal-btn modal-btn-ok" style="flex:none;padding:9px 16px" onclick="closeModal();openPlan(\'' + org.id + '\',\'' + esc(org.name) + '\',\'' + org.plan + '\')">Cambia piano</button>' +
-      '<button class="modal-btn modal-btn-email" style="flex:none;padding:9px 16px" onclick="closeModal();openEmail(\'' + org.id + '\',\'' + esc(org.name) + '\',\'' + esc(org.email||'') + '\')">Invia email</button>' +
-      '<button class="modal-btn modal-btn-cancel" style="flex:none;padding:9px 16px" onclick="closeModal();openExtend(\'' + org.id + '\',\'' + esc(org.name) + '\')">+ Trial</button>' +
+    '<div id="detail-tab-info">' +
+      '<div class="detail-grid">' +
+        '<div class="detail-box"><div class="detail-box-label">Piano</div><div class="detail-box-val"><span class="badge ' + plan.badge + '">' + plan.label + '</span></div></div>' +
+        '<div class="detail-box"><div class="detail-box-label">Posti tecnici</div><div class="detail-box-val">' + (plan.seats >= 999 ? 'Illimitati' : plan.seats) + '</div></div>' +
+        '<div class="detail-box"><div class="detail-box-label">Clienti</div><div class="detail-box-val">' + (org.clients_count||0) + '</div></div>' +
+        '<div class="detail-box"><div class="detail-box-label">Interventi</div><div class="detail-box-val">' + (org.interventions_count||0) + '</div></div>' +
+      '</div>' +
+      '<div style="font-size:13px;color:var(--ink-muted);margin-bottom:4px">Email: ' + (org.email||'—') + '</div>' +
+      '<div style="font-size:13px;color:var(--ink-muted);margin-bottom:16px">Registrazione: ' + new Date(org.created_at).toLocaleDateString('it-IT') + '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button class="modal-btn modal-btn-ok" style="flex:none;padding:9px 16px" onclick="closeModal();openPlan(\'' + org.id + '\',\'' + esc(org.name) + '\',\'' + org.plan + '\')">Cambia piano</button>' +
+        '<button class="modal-btn modal-btn-email" style="flex:none;padding:9px 16px" onclick="closeModal();openEmail(\'' + org.id + '\',\'' + esc(org.name) + '\',\'' + esc(org.email||'') + '\')">Invia email</button>' +
+        '<button class="modal-btn modal-btn-cancel" style="flex:none;padding:9px 16px" onclick="closeModal();openExtend(\'' + org.id + '\',\'' + esc(org.name) + '\')">+ Trial</button>' +
+      '</div>' +
+    '</div>' +
+    '<div id="detail-tab-tech" style="display:none">' +
+      '<div id="tech-list-body"><div style="padding:20px;text-align:center;font-size:13px;color:var(--ink-muted)">Caricamento...</div></div>' +
+      '<div style="margin-top:14px;padding:10px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0">' +
+        '<div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:4px">Link invito tecnico</div>' +
+        '<div style="display:flex;gap:8px;align-items:center">' +
+          '<input id="admin-invite-url" value="' + inviteUrl + '" readonly style="font-size:11px;color:var(--ink-muted);flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:var(--font)">' +
+          '<button onclick="adminCopyInvite()" style="padding:6px 12px;font-size:12px;font-weight:700;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-family:var(--font)">Copia</button>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--ink-muted);margin-top:4px">Condividi questo link al tecnico — dopo la registrazione sara collegato automaticamente a questo team.</div>' +
+      '</div>' +
     '</div>';
 
   document.getElementById('modal-overlay').classList.remove('hidden');
+
+  // Carica tecnici in background
+  loadOrgTechnicians(org.id);
+}
+
+function switchDetailTab(tab) {
+  const info = document.getElementById('detail-tab-info');
+  const tech = document.getElementById('detail-tab-tech');
+  const btnInfo = document.getElementById('tab-info-btn');
+  const btnTech = document.getElementById('tab-tech-btn');
+  if (tab === 'info') {
+    info.style.display = ''; tech.style.display = 'none';
+    btnInfo.style.cssText = 'padding:8px 16px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--green-light);color:var(--ink);font-family:var(--font)';
+    btnTech.style.cssText = 'padding:8px 16px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink-muted);font-family:var(--font)';
+  } else {
+    info.style.display = 'none'; tech.style.display = '';
+    btnTech.style.cssText = 'padding:8px 16px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--green-light);color:var(--ink);font-family:var(--font)';
+    btnInfo.style.cssText = 'padding:8px 16px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink-muted);font-family:var(--font)';
+  }
+}
+
+async function loadOrgTechnicians(orgId) {
+  const cont = document.getElementById('tech-list-body');
+  if (!cont) return;
+  const { data, error } = await db.rpc('admin_get_org_members', { p_org_id: orgId });
+  if (error || !data?.length) {
+    cont.innerHTML = '<div style="padding:16px;text-align:center;font-size:13px;color:var(--ink-muted)">' +
+      (error ? 'Errore: ' + error.message : 'Nessun tecnico registrato ancora.') + '</div>';
+    return;
+  }
+  const roleLabel = r => r === 'admin' || r === 'superadmin' ? 'Admin' : 'Tecnico';
+  const roleBadge = r => r === 'admin' || r === 'superadmin' ? 'badge-attivo' : 'badge-solo';
+  cont.innerHTML = data.map(m => {
+    const initials = (m.full_name || 'NN').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+    const since = new Date(m.created_at).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' });
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">' +
+      '<div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + initials + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(m.full_name || '—') + '</div>' +
+        '<div style="font-size:11px;color:var(--ink-muted)">' + (m.cert_number ? 'Cert. ' + m.cert_number + ' · ' : '') + 'Dal ' + since + '</div>' +
+      '</div>' +
+      '<span class="badge ' + roleBadge(m.role) + '">' + roleLabel(m.role) + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function adminCopyInvite() {
+  const input = document.getElementById('admin-invite-url');
+  if (!input) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(input.value).then(() => showToast('Link copiato', 'success'));
+  } else {
+    input.select(); document.execCommand('copy');
+    showToast('Link copiato', 'success');
+  }
 }
 
 // CHANGE PLAN
@@ -399,11 +474,10 @@ function openPlan(orgId, name, currentPlan) {
 }
 
 async function savePlan(orgId) {
-  const plan  = document.getElementById('sel-plan').value;
-  const seats = PLANS[plan]?.seats || 2;
-  const { error } = await db.from('organizations').update({ plan }).eq('id', orgId);
-  if (error) { showToast('Errore nel salvataggio', 'error'); return; }
-  // Aggiorna state locale immediatamente — niente flash da re-fetch
+  const plan = document.getElementById('sel-plan').value;
+  // Usa RPC admin_set_plan che bypassa RLS con SECURITY DEFINER
+  const { error } = await db.rpc('admin_set_plan', { p_org_id: orgId, p_plan: plan });
+  if (error) { showToast('Errore: ' + (error.message || 'RPC fallita'), 'error'); return; }
   const idx = allOrgs.findIndex(o => o.id === orgId);
   if (idx >= 0) allOrgs[idx] = { ...allOrgs[idx], plan };
   updateStats(allOrgs);
@@ -426,9 +500,8 @@ function openExtend(orgId, name) {
 
 async function saveExtend(orgId) {
   const days = parseInt(document.getElementById('ext-days').value);
-  const { error } = await db.rpc('extend_trial', { p_org_id: orgId, p_days: days });
-  if (error) { showToast('Errore: ' + (error.message || 'verifica il DB'), 'error'); return; }
-  // Aggiorna trial_days_left localmente
+  const { error } = await db.rpc('admin_extend_trial', { p_org_id: orgId, p_days: days });
+  if (error) { showToast('Errore: ' + (error.message || 'RPC fallita'), 'error'); return; }
   const idx = allOrgs.findIndex(o => o.id === orgId);
   if (idx >= 0) allOrgs[idx] = { ...allOrgs[idx], trial_days_left: (allOrgs[idx].trial_days_left || 0) + days };
   renderTable(applyCurrentFilter());
@@ -450,8 +523,9 @@ function openToggle(orgId, name, active) {
 }
 
 async function saveToggle(orgId, active) {
-  const { error } = await db.from('organizations').update({ active: !active }).eq('id', orgId);
-  if (error) { showToast('Errore nel salvataggio', 'error'); return; }
+  // Usa RPC admin_toggle_active che bypassa RLS con SECURITY DEFINER
+  const { error } = await db.rpc('admin_toggle_active', { p_org_id: orgId, p_active: !active });
+  if (error) { showToast('Errore: ' + (error.message || 'RPC fallita'), 'error'); return; }
   const idx = allOrgs.findIndex(o => o.id === orgId);
   if (idx >= 0) allOrgs[idx] = { ...allOrgs[idx], active: !active };
   updateStats(allOrgs);
