@@ -245,15 +245,28 @@ let currentOrg = null;
 async function adminLogin() {
   const email = document.getElementById('adm-email').value.trim();
   const pwd   = document.getElementById('adm-pwd').value;
-  document.getElementById('adm-err').textContent = '';
+  const errEl = document.getElementById('adm-err');
+  errEl.textContent = '';
+
   const { data, error } = await db.auth.signInWithPassword({ email, password: pwd });
-  if (error) { document.getElementById('adm-err').textContent = 'Credenziali non valide'; return; }
-  const { data: profile } = await db.from('profiles').select('role').eq('id', data.user.id).single();
-  if (profile?.role !== 'admin' && profile?.role !== 'superadmin') {
+  if (error) { errEl.textContent = 'Credenziali non valide'; return; }
+
+  // Legge il ruolo via RPC SECURITY DEFINER — bypassa RLS,
+  // funziona anche se il profilo ha organization_id = NULL
+  const { data: roleData, error: roleErr } = await db.rpc('get_my_role');
+
+  if (roleErr || !roleData) {
     await db.auth.signOut();
-    document.getElementById('adm-err').textContent = 'Accesso non autorizzato';
+    errEl.innerHTML = 'Profilo non trovato.<br><small>Esegui in Supabase SQL Editor:<br><code>UPDATE profiles SET role=\'superadmin\' WHERE id=(SELECT id FROM auth.users WHERE email=\'' + email + '\');</code></small>';
     return;
   }
+
+  if (roleData !== 'admin' && roleData !== 'superadmin') {
+    await db.auth.signOut();
+    errEl.innerHTML = 'Ruolo non autorizzato (ruolo attuale: <strong>' + roleData + '</strong>).<br><small>Esegui in Supabase SQL Editor:<br><code>UPDATE profiles SET role=\'superadmin\' WHERE id=(SELECT id FROM auth.users WHERE email=\'' + email + '\');</code></small>';
+    return;
+  }
+
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
   loadOrgs();
