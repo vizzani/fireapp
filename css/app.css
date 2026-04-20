@@ -843,3 +843,28 @@ a { color: inherit; text-decoration: none; }
     --gray-50:  #1d221b;
   }
 }
+
+/* ── Equipment management ─────────────────────────────────── */
+.equip-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gray-100);
+  gap: 8px;
+}
+.equip-item:last-child { border-bottom: none; }
+.equip-info { flex: 1; min-width: 0; }
+.equip-name { font-size: 13px; font-weight: 600; color: var(--gray-800); margin-bottom: 2px; }
+.equip-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.btn-icon {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--gray-50); border: 1px solid var(--gray-200);
+  border-radius: 6px; cursor: pointer; transition: all .15s;
+}
+.btn-icon:hover { background: var(--gray-100); }
+.btn-icon-red:hover { background: var(--red-50, #fef2f2); border-color: var(--red-200, #fecaca); }
+
+/* ── Verbale detail grid ──────────────────────────────────── */
+.verbale-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
