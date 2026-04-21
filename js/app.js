@@ -1436,10 +1436,13 @@ async function buildPDFDoc(inv, responses, anom) {
   (responses || []).forEach(resp => { respMap[resp.item_id] = resp; });
 
   for (const eqType of inv.equipment_types) {
-    const items = CHECKLISTS[eqType] || [];
+    // Per P1 usa la checklist p1_[tipo] (es. p1_irai) invece di quella semestrale
+    const checklistKey = inv.type === 'p1' ? ('p1_' + eqType) : eqType;
+    const items = CHECKLISTS[checklistKey] || CHECKLISTS[eqType] || [];
     if (!items.length) continue;
     doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-    doc.text((EQ_TYPE_LABELS[eqType] || eqType).toUpperCase(), M, y); y += 6;
+    const eqDisplayLabel = inv.type === 'p1' ? 'PRESA IN CONSEGNA P1 — UNI 11224:2011' : (EQ_TYPE_LABELS[eqType] || eqType).toUpperCase();
+    doc.text(eqDisplayLabel, M, y); y += 6;
     for (const item of items) {
       if (y > 250) { doc.addPage(); y = 20; }
       const r = respMap[item.id];
