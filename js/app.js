@@ -128,6 +128,7 @@ function el(id) { return document.getElementById(id); }
 async function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(console.warn);
   setupOfflineBanner();
+  loadLoginBranding(); // carica dati azienda nella schermata di login (non bloccante)
   const params = new URLSearchParams(location.search);
   if (params.get('action') === 'new-intervention') window._pendingAction = 'new-intervention';
 
@@ -230,6 +231,27 @@ function showApp() {
   }
   // Inizializza notifiche push (non bloccante)
   setTimeout(initPushNotifications, 2000);
+}
+
+// Carica dati azienda nella schermata di login
+async function loadLoginBranding() {
+  try {
+    const { data } = await db.rpc('get_app_branding');
+    if (!data?.found) return;
+    const brandEl = document.getElementById('login-org-brand');
+    const nameEl  = document.getElementById('login-org-name');
+    const detEl   = document.getElementById('login-org-details');
+    if (!brandEl || !nameEl || !detEl) return;
+    nameEl.textContent = data.name || '';
+    const parts = [
+      data.vat_number ? 'P.IVA ' + data.vat_number : null,
+      [data.address, data.city].filter(Boolean).join(', ') || null,
+      data.phone || null,
+      data.email || null,
+    ].filter(Boolean);
+    detEl.textContent = parts.join('  ·  ');
+    brandEl.style.display = 'block';
+  } catch { /* silenzioso */ }
 }
 
 el('form-login')?.addEventListener('submit', async (e) => {
@@ -1405,6 +1427,16 @@ async function buildPDFDoc(inv, responses, anom) {
   } else {
     doc.text(state.org?.name || '', W - M, 22, { align: 'right' });
   }
+  // Dati azienda manutentrice sotto il nome (piccolo, grigio chiaro)
+  const orgDetails = [
+    state.org?.vat_number ? 'P.IVA ' + state.org.vat_number : null,
+    [state.org?.address, state.org?.city].filter(Boolean).join(', ') || null,
+  ].filter(Boolean).join('  |  ');
+  if (orgDetails) {
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(180, 220, 200);
+    doc.text(orgDetails, W - M, 29, { align: 'right' });
+  }
   doc.setTextColor(0, 0, 0);
 
   // Dati intervento
@@ -1506,6 +1538,16 @@ async function buildPDFDoc(inv, responses, anom) {
   for (let p = 1; p <= pageCount; p++) {
     doc.setPage(p);
     doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+    // Footer con dati azienda manutentrice
+    const orgFooterParts = [
+      state.org?.name || '',
+      state.org?.vat_number ? 'P.IVA ' + state.org.vat_number : null,
+      state.org?.phone || null,
+      state.org?.email || null,
+    ].filter(Boolean);
+    const orgFooterLine = orgFooterParts.join('  |  ');
+    doc.text(orgFooterLine, W / 2, 287, { align: 'center' });
+    doc.setFontSize(7);
     doc.text('Pagina ' + p + '/' + pageCount + '  -  Generato da FireApp  -  ' + new Date().toLocaleDateString('it-IT'), W / 2, 292, { align: 'center' });
   }
 
@@ -2390,7 +2432,10 @@ async function generateCartellino(equipId) {
       ['Quantita', String(eq.quantity || 1)],
       ['Installazione', eq.installation_date ? cartellinoFmt(eq.installation_date) : '—'],
       ['Manutentore', org.name || '—'],
-    ];
+      ['P.IVA', org.vat_number || '—'],
+      org.phone  ? ['Tel.',   org.phone]  : null,
+      org.email  ? ['Email',  org.email]  : null,
+    ].filter(Boolean);
 
     doc.setFontSize(7.5);
     rows1.forEach(([k, v]) => {
