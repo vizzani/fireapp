@@ -217,23 +217,6 @@ function showLogin() {
 function showApp() {
   el('page-login').style.display = 'none';
   el('app').classList.remove('hidden');
-  if (!state.org?.id) {
-    // Profilo senza organizzazione — mostra avviso e blocca
-    setTimeout(() => {
-      showModal(
-        '<div class="modal-handle"></div>' +
-        '<div class="modal-title">Configurazione incompleta</div>' +
-        '<p style="font-size:14px;color:var(--gray-600);margin-bottom:16px">Il tuo account non e collegato a nessuna organizzazione.<br><br>Questo accade se la registrazione non si e completata correttamente.</p>' +
-        '<div style="background:#f0fdf4;border-radius:8px;padding:12px;font-size:13px;color:#065f46;margin-bottom:16px">' +
-        '<strong>Soluzione:</strong> Vai su Supabase SQL Editor ed esegui:<br><br>' +
-        '<code style="font-size:11px">SELECT setup_new_organization(...);</code><br><br>' +
-        'Oppure registra un nuovo account dalla pagina di signup.' +
-        '</div>' +
-        '<button class="btn-primary" onclick="closeModal();signOut()">Esci e riprova</button>'
-      );
-    }, 500);
-    return;
-  }
   if (window._pendingAction === 'new-intervention') {
     window._pendingAction = null;
     setTimeout(showNewInterventionModal, 500);
