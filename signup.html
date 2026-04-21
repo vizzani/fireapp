@@ -183,6 +183,13 @@ a{color:inherit;text-decoration:none}
           <div class="field">
             <label>Nome azienda *</label>
             <input type="text" id="f-company" placeholder="Es. Rossi Antincendio Srl" autocomplete="organization" required>
+          <script>
+            // Nascondi campo azienda se è un invito a team esistente
+            if (_joinOrgId) {
+              document.currentScript.closest('.form-field').style.display = 'none';
+              document.currentScript.closest('.form-field').querySelector('input').removeAttribute('required');
+            }
+          </script>
             <div class="field-error" id="err-company">Inserisci il nome dell'azienda</div>
           </div>
 
@@ -264,8 +271,14 @@ a{color:inherit;text-decoration:none}
         <div class="success-icon">
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
-        <h2>Account creato!</h2>
-        <p>Il tuo account è pronto. Hai <strong>30 giorni gratuiti</strong> per esplorare tutte le funzionalità.<br><br>Inizia aggiungendo il tuo primo cliente.</p>
+        <h2 id="success-title">Account creato!</h2>
+        <p id="success-msg">Il tuo account è pronto. Hai <strong>30 giorni gratuiti</strong> per esplorare tutte le funzionalità.<br><br>Inizia aggiungendo il tuo primo cliente.</p>
+        <script>
+          if (_joinOrgId) {
+            document.getElementById('success-title').textContent = 'Benvenuto nel team!';
+            document.getElementById('success-msg').innerHTML = 'Il tuo account è stato collegato al team.<br><br>Puoi accedere subito a FireApp con le credenziali che hai appena creato.';
+          }
+        </script>
         <a href="/index.html" class="btn-go">Entra in FireApp →</a>
       </div>
 
@@ -378,23 +391,39 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
       return;
     }
 
-    // 2. Crea organizzazione e collega il profilo
-    const { data: setupData, error: setupError } = await db.rpc('setup_new_organization', {
-      p_org_name:  company,
-      p_full_name: fullName,
-      p_user_id:   authData.user.id,
-    });
-
-    if (setupError) {
-      showError('Account creato ma configurazione incompleta. Contatta il supporto.');
-      console.error('Setup error:', setupError);
-      return;
-    }
-
-    const result = typeof setupData === 'string' ? JSON.parse(setupData) : setupData;
-    if (!result.success) {
-      showError(result.error || 'Errore nella configurazione.');
-      return;
+    // 2a. Flusso INVITO: unisciti a team esistente
+    if (_joinOrgId) {
+      const { data: joinData, error: joinError } = await db.rpc('join_organization', {
+        p_org_id:    _joinOrgId,
+        p_user_id:   authData.user.id,
+        p_full_name: fullName,
+      });
+      if (joinError) {
+        showError('Errore nel collegamento al team: ' + joinError.message);
+        return;
+      }
+      const joinResult = typeof joinData === 'string' ? JSON.parse(joinData) : joinData;
+      if (!joinResult.success) {
+        showError(joinResult.error || 'Impossibile unirsi al team. Il link potrebbe essere scaduto o non valido.');
+        return;
+      }
+    } else {
+      // 2b. Flusso NORMALE: crea nuova organizzazione
+      const { data: setupData, error: setupError } = await db.rpc('setup_new_organization', {
+        p_org_name:  company,
+        p_full_name: fullName,
+        p_user_id:   authData.user.id,
+      });
+      if (setupError) {
+        showError('Account creato ma configurazione incompleta. Contatta il supporto.');
+        console.error('Setup error:', setupError);
+        return;
+      }
+      const result = typeof setupData === 'string' ? JSON.parse(setupData) : setupData;
+      if (!result.success) {
+        showError(result.error || 'Errore nella configurazione.');
+        return;
+      }
     }
 
     // 3. Successo
