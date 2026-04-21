@@ -1310,6 +1310,32 @@ async function sendVerbaleEmail(interventionId) {
 // ─── GENERAZIONE PDF ──────────────────────────────────────────────────────────
 // Versione che ritorna un Blob (usata dall'invio email)
 async function generatePDFBlob(interventionId) {
+  // Prova server-side prima — niente RAM sul device, immagini gestite dal server
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    const token = session?.access_token;
+    if (token && navigator.onLine) {
+      const res = await fetch(
+        'https://bclfpawguqpwypahmzbk.supabase.co/functions/v1/generate-verbale-pdf',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ intervention_id: interventionId }),
+          signal: AbortSignal.timeout(30000),
+        }
+      );
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && result.signed_url) {
+          const pdfRes = await fetch(result.signed_url);
+          if (pdfRes.ok) return await pdfRes.blob();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[PDF] Edge Function non disponibile, uso client-side:', err.message || err);
+  }
+  // Fallback client-side (jsPDF) — usato offline o se la funzione non e deployata
   const [{ data: inv }, { data: responses }, { data: anom }] = await Promise.all([
     db.from('interventions').select('*, clients(*), profiles(full_name, cert_number)').eq('id', interventionId).single(),
     db.from('checklist_responses').select('*').eq('intervention_id', interventionId),
@@ -1405,6 +1431,10 @@ async function buildPDFDoc(inv, responses, anom) {
   doc.line(M, y, W - M, y); y += 6;
 
   // Checklist per impianto
+  // Costruisce una Map item_id→risposta per lookup O(1) senza shadowing
+  const respMap = {};
+  (responses || []).forEach(resp => { respMap[resp.item_id] = resp; });
+
   for (const eqType of inv.equipment_types) {
     const items = CHECKLISTS[eqType] || [];
     if (!items.length) continue;
@@ -1412,7 +1442,7 @@ async function buildPDFDoc(inv, responses, anom) {
     doc.text((EQ_TYPE_LABELS[eqType] || eqType).toUpperCase(), M, y); y += 6;
     for (const item of items) {
       if (y > 250) { doc.addPage(); y = 20; }
-      const r = responses?.find(r => r.item_id === item.id);
+      const r = respMap[item.id];
       const statusTxt = r?.status === 'ok' ? 'OK' : r?.status === 'anomaly' ? 'AN' : r?.status === 'na' ? 'N/A' : '---';
       const statusCol = r?.status === 'ok' ? [22, 160, 94] : r?.status === 'anomaly' ? [220, 38, 38] : [107, 114, 128];
       doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0);
