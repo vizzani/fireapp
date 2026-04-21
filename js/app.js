@@ -1,3 +1,4 @@
+/* FireApp app.js — build 2026-04-21-v2 */
 /* FireApp — app.js — v1.1 */
 
 const SUPABASE_URL      = 'https://bclfpawguqpwypahmzbk.supabase.co';
