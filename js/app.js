@@ -2042,130 +2042,78 @@ async function exportVerbaliCSV() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 async function showEquipmentQR(equipId, typeLabel) {
-  const baseUrl = window.location.origin;
+  const baseUrl = 'https://fireapp-five.vercel.app';
   const pageUrl = baseUrl + '/equipment.html?id=' + equipId;
+  const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=073524&bgcolor=ffffff&qzone=1&data=' + encodeURIComponent(pageUrl);
 
   showModal(
     '<div class="modal-handle"></div>' +
     '<div class="modal-title">QR Scheda ' + typeLabel + '</div>' +
-    '<p style="font-size:14px;color:var(--gray-600);margin-bottom:16px">Scansiona per vedere lo stato aggiornato dell\'impianto in tempo reale. Stampa e apponi fisicamente all\'impianto.</p>' +
-    '<div id="qr-canvas-wrap" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:16px">' +
-    '<canvas id="qr-canvas" style="border:4px solid white;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.12)"></canvas>' +
-    '<div style="font-size:11px;color:var(--gray-400);text-align:center;max-width:200px;word-break:break-all">' + pageUrl + '</div>' +
+    '<p style="font-size:14px;color:var(--gray-600);margin-bottom:16px">Scansiona per vedere lo stato aggiornato dell\'impianto. Stampa e apponi fisicamente all\'impianto.</p>' +
+    '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:16px">' +
+    '<img id="qr-img" src="' + qrApiUrl + '" width="200" height="200" ' +
+    'style="border:4px solid white;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.12)" ' +
+    'data-url="' + pageUrl + '" data-label="' + typeLabel + '" data-apiurl="' + qrApiUrl + '">' +
+    '<div style="font-size:11px;color:var(--gray-400);text-align:center;max-width:220px;word-break:break-all">' + pageUrl + '</div>' +
     '</div>' +
     '<div style="display:flex;gap:8px">' +
     '<button class="btn-primary" style="flex:1" onclick="downloadQR()">Scarica QR</button>' +
     '<button class="btn-secondary" style="flex:1;margin-top:0" onclick="printQR()">Stampa QR</button>' +
     '</div>' +
-    '<button class="btn-secondary" style="width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="closeModal();generateCartellino(\'' + equipId + '\')">' +
+    '<button class="btn-secondary" style="width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px" data-eid="' + equipId + '" onclick="closeModal();generateCartellino(this.dataset.eid)">' +
     '<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
     'Genera cartellino A5 (PDF)' +
     '</button>' +
     '<button class="btn-outline" onclick="closeModal()">Chiudi</button>'
   );
-
-  // Genera QR con qrcode-generator da CDN
-  await loadQRLib();
-  generateQRCanvas(pageUrl, equipId, typeLabel);
 }
 
-function loadQRLib() {
-  return new Promise((resolve) => {
-    if (window.QRCode) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-    s.onload = resolve;
-    s.onerror = resolve; // fallback graceful
-    document.head.appendChild(s);
-  });
-}
-
-function generateQRCanvas(url, equipId, typeLabel) {
-  const canvas = document.getElementById('qr-canvas');
-  if (!canvas) return;
-  if (!window.QRCode) {
-    // Fallback: link testuale se la lib non carica
-    const wrap = document.getElementById('qr-canvas-wrap');
-    if (wrap) wrap.innerHTML = '<p style="font-size:13px;color:var(--gray-600);text-align:center">QR non disponibile.<br>Copia il link qui sotto.</p>';
-    return;
+async function downloadQR() {
+  const img = document.getElementById('qr-img');
+  if (!img) return;
+  const label = img.dataset.label || 'IRAI';
+  try {
+    const res = await fetch(img.dataset.apiurl || img.src);
+    const blob = await res.blob();
+    const bmp  = await createImageBitmap(blob);
+    const out  = document.createElement('canvas');
+    out.width = 200; out.height = 248;
+    const ctx  = out.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 200, 248);
+    ctx.drawImage(bmp, 0, 0, 200, 200);
+    ctx.fillStyle = '#073524'; ctx.font = 'bold 13px system-ui,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('FireApp · ' + label, 100, 220);
+    ctx.fillStyle = '#6b7280'; ctx.font = '10px system-ui,sans-serif';
+    ctx.fillText('Scansiona per la scheda aggiornata', 100, 238);
+    const a = document.createElement('a');
+    a.href = out.toDataURL('image/png');
+    a.download = 'qr-' + label.toLowerCase() + '.png';
+    a.click();
+  } catch {
+    const a = document.createElement('a');
+    a.href = img.src; a.target = '_blank';
+    a.download = 'qr-' + label.toLowerCase() + '.png';
+    a.click();
   }
-  // Salva dati sul canvas per download/stampa
-  canvas.dataset.url = url;
-  canvas.dataset.label = typeLabel;
-
-  QRCode.toCanvas(canvas, url, {
-    width: 200,
-    margin: 2,
-    color: { dark: '#073524', light: '#ffffff' },
-    errorCorrectionLevel: 'M',
-  }, (err) => {
-    if (err) console.warn('QR generation error:', err);
-  });
-}
-
-function downloadQR() {
-  const canvas = document.getElementById('qr-canvas');
-  if (!canvas) return;
-
-  // Crea canvas con label sotto il QR
-  const label = canvas.dataset.label || 'IRAI';
-  const out = document.createElement('canvas');
-  const W = canvas.width, H = canvas.height + 50;
-  out.width = W; out.height = H;
-  const ctx = out.getContext('2d');
-
-  // Sfondo bianco
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, W, H);
-
-  // QR
-  ctx.drawImage(canvas, 0, 0);
-
-  // Label
-  ctx.fillStyle = '#073524';
-  ctx.font = 'bold 13px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('FireApp · ' + label, W / 2, canvas.height + 18);
-  ctx.font = '10px system-ui, sans-serif';
-  ctx.fillStyle = '#6b7280';
-  ctx.fillText('Scansiona per la scheda aggiornata', W / 2, canvas.height + 34);
-
-  const a = document.createElement('a');
-  a.href = out.toDataURL('image/png');
-  a.download = 'qr-irai-' + (canvas.dataset.url || '').split('id=')[1]?.slice(0, 8) + '.png';
-  a.click();
 }
 
 function printQR() {
-  const canvas = document.getElementById('qr-canvas');
-  if (!canvas) return;
-  const dataUrl = canvas.toDataURL('image/png');
-  const label = canvas.dataset.label || 'IRAI';
-  const url = canvas.dataset.url || '';
-
-  const win = window.open('', '_blank', 'width=400,height=500');
-  win.document.write(`
-    <!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <title>QR Impianto ${label}</title>
-    <style>
-      body { font-family: system-ui, sans-serif; display: flex; flex-direction: column;
-             align-items: center; justify-content: center; min-height: 100vh; margin: 0;
-             background: white; color: #073524; }
-      img { width: 200px; height: 200px; border: 4px solid #073524; border-radius: 8px; margin-bottom: 12px; }
-      h2 { font-size: 16px; font-weight: 800; margin: 0 0 4px; }
-      p  { font-size: 11px; color: #6b7280; margin: 0 0 4px; text-align: center; max-width: 220px; word-break: break-all; }
-      .brand { font-size: 11px; color: #6b7280; margin-top: 8px; }
-    </style>
-    </head><body>
-    <img src="${dataUrl}" alt="QR">
-    <h2>Impianto ${label}</h2>
-    <p>Scansiona per la scheda aggiornata</p>
-    <p>${url}</p>
-    <p class="brand">Gestito con FireApp</p>
-    <script>window.onload = () => { window.print(); window.close(); }<\/script>
-    </body></html>
-  `);
+  const img = document.getElementById('qr-img');
+  if (!img) return;
+  const label  = img.dataset.label || 'IRAI';
+  const url    = img.dataset.url   || '';
+  const qrSrc  = img.dataset.apiurl || img.src;
+  const win = window.open('', '_blank', 'width=400,height=520');
+  win.document.write(
+    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR ' + label + '</title>' +
+    '<style>body{font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;background:white;color:#073524}' +
+    'img{width:200px;height:200px;border:4px solid #073524;border-radius:8px;margin-bottom:12px}' +
+    'h2{font-size:16px;font-weight:800;margin:0 0 4px}p{font-size:11px;color:#6b7280;margin:0 0 4px;text-align:center;max-width:220px;word-break:break-all}</style>' +
+    '</head><body>' +
+    '<img src="' + qrSrc + '" alt="QR" onload="window.print()">' +
+    '<h2>Impianto ' + label + '</h2><p>Scansiona per la scheda aggiornata</p>' +
+    '<p style="font-size:10px">' + url + '</p><p>Gestito con FireApp</p></body></html>'
+  );
   win.document.close();
 }
 
@@ -2492,7 +2440,7 @@ async function generateCartellino(equipId) {
       doc.roundedRect(col2, y2 + 1, 35, 7, 2, 2, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-      const badge = { conforme:'✓ CONFORME', anomalie:'⚠ CON ANOMALIE', non_conforme:'✗ NON CONFORME' }[last.outcome] || '—';
+      const badge = { conforme:'OK  CONFORME', anomalie:'!!  CON ANOMALIE', non_conforme:'NC  NON CONFORME' }[last.outcome] || '—';
       doc.text(badge, col2 + 17.5, y2 + 5.8, { align: 'center' });
       doc.setTextColor(0, 0, 0);
     }
