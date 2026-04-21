@@ -314,7 +314,12 @@ function render(d) {
       ${clHtml}
 
       <div class="footer">
-        Gestito con <a href="https://fireapp-five.vercel.app" target="_blank">FireApp</a> · ${org.name || ''}
+        <strong>${org.name || ''}</strong><br>
+        ${org.vat_number ? '<span>P.IVA ' + org.vat_number + '</span>' : ''}
+        ${org.address ? ' · <span>' + [org.address, org.city].filter(Boolean).join(', ') + '</span>' : ''}
+        ${org.phone ? ' · <span>' + org.phone + '</span>' : ''}
+        ${org.email ? ' · <a href="mailto:' + org.email + '">' + org.email + '</a>' : ''}
+        <br><span style="color:var(--ink-muted)">Gestito con <a href="https://fireapp-five.vercel.app" target="_blank">FireApp</a></span>
       </div>
     </div>`;
 }
