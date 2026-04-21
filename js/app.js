@@ -510,19 +510,20 @@ function renderClientModal(client, equip, interventions) {
         const p6badge = isP6 ? '<span class=\"badge badge-red\" style=\"margin-left:6px\">P6</span>' : '';
         const brandStr = [e.brand, e.model].filter(Boolean).join(' ');
         const qrTypes = ['irai', 'evac', 'sprinkler'];
+        const qrLabel = EQ_TYPE_LABELS[e.type] || e.type;
         const qrBtn = qrTypes.includes(e.type)
-          ? '<button class=\"btn-icon\" onclick=\"showEquipmentQR(\\'' + e.id + '\\',\\'' + (EQ_TYPE_LABELS[e.type]||e.type) + '\\')" title=\"QR Scheda\">' +
-            '<svg viewBox=\"0 0 24 24\" style=\"width:15px;height:15px;stroke:var(--green-mid,#0d6040);fill:none;stroke-width:2;stroke-linecap:round\"><rect x=\"3\" y=\"3\" width=\"5\" height=\"5\"/><rect x=\"16\" y=\"3\" width=\"5\" height=\"5\"/><rect x=\"3\" y=\"16\" width=\"5\" height=\"5\"/><path d=\"M21 16h-3v3M21 21h-2M16 16v5M16 21h1M8 8h.01M8 16h.01M16 8h.01\"/></svg>' +
+          ? '<button class="btn-icon" data-eid="' + e.id + '" data-elabel="' + qrLabel + '" onclick="showEquipmentQR(this.dataset.eid,this.dataset.elabel)" title="QR Scheda">' +
+            '<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:var(--green-mid,#0d6040);fill:none;stroke-width:2;stroke-linecap:round"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3M21 21h-2M16 16v5M16 21h1M8 8h.01M8 16h.01M16 8h.01"/></svg>' +
             '</button>'
           : '';
         // editBtns = edit + delete (admin only) + QR button (tutti)
         const editBtns = adminActions
-          ? '<div class=\"equip-actions\">' + qrBtn +
-            '<button class=\"btn-icon\" onclick=\"showEditEquipmentModal(\\'' + e.id + '\\',\\'' + client.id + '\\')" title=\"Modifica\">' +
-            '<svg viewBox=\"0 0 24 24\" style=\"width:15px;height:15px;stroke:var(--gray-500);fill:none;stroke-width:2;stroke-linecap:round\"><path d=\"M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7\"/><path d=\"M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z\"/></svg>' +
+          ? '<div class="equip-actions">' + qrBtn +
+            '<button class="btn-icon" data-eid="' + e.id + '" data-cid="' + client.id + '" onclick="showEditEquipmentModal(this.dataset.eid,this.dataset.cid)" title="Modifica">' +
+            '<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:var(--gray-500);fill:none;stroke-width:2;stroke-linecap:round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
             '</button>' +
-            '<button class=\"btn-icon btn-icon-red\" onclick=\"deleteEquipment(\\'' + e.id + '\\',\\'' + client.id + '\\')" title=\"Elimina\">' +
-            '<svg viewBox=\"0 0 24 24\" style=\"width:15px;height:15px;stroke:var(--red-500,#dc2626);fill:none;stroke-width:2;stroke-linecap:round\"><polyline points=\"3 6 5 6 21 6\"/><path d=\"M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6\"/><path d=\"M10 11v6M14 11v6M9 6V4h6v2\"/></svg>' +
+            '<button class="btn-icon btn-icon-red" data-eid="' + e.id + '" data-cid="' + client.id + '" onclick="deleteEquipment(this.dataset.eid,this.dataset.cid)" title="Elimina">' +
+            '<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:var(--red-500,#dc2626);fill:none;stroke-width:2;stroke-linecap:round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>' +
             '</button>' +
             '</div>'
           : '';
@@ -2444,12 +2445,12 @@ async function generateCartellino(equipId) {
     // ── Badge esito ──
     if (last) {
       const outcomeColor = { conforme:[22,160,94], anomalie:[217,119,6], non_conforme:[220,38,38] };
-      const [r, g, b] = outcomeColor[last.outcome as string] || [107,114,128];
+      const [r, g, b] = outcomeColor[last.outcome] || [107,114,128];
       doc.setFillColor(r, g, b);
       doc.roundedRect(col2, y2 + 1, 35, 7, 2, 2, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-      const badge = { conforme:'✓ CONFORME', anomalie:'⚠ CON ANOMALIE', non_conforme:'✗ NON CONFORME' }[last.outcome as string] || '—';
+      const badge = { conforme:'✓ CONFORME', anomalie:'⚠ CON ANOMALIE', non_conforme:'✗ NON CONFORME' }[last.outcome] || '—';
       doc.text(badge, col2 + 17.5, y2 + 5.8, { align: 'center' });
       doc.setTextColor(0, 0, 0);
     }
