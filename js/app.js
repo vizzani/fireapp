@@ -184,6 +184,12 @@ async function loadProfile() {
   if (error || !data) return;
   state.profile = data;
   state.org = data.organizations;
+  // Fallback: se il join organizations(*) torna null ma organization_id esiste,
+  // carica l'org separatamente (può succedere con certi setup RLS)
+  if (!state.org && data.organization_id) {
+    const { data: orgData } = await db.from('organizations').select('*').eq('id', data.organization_id).single();
+    if (orgData) state.org = orgData;
+  }
   const badge = el('user-badge');
   if (badge && data.full_name) badge.textContent = data.full_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   applyRoleUI();
@@ -1942,6 +1948,7 @@ async function saveOrgSettings() {
     phone:      el('os-phone')?.value.trim() || null,
     email:      el('os-email')?.value.trim() || null,
   };
+  if (!state.org?.id) { showToast('Organizzazione non caricata — ricarica la pagina', 'error'); showLoading(false); return; }
   const { error } = await db.from('organizations').update(updates).eq('id', state.org.id);
   showLoading(false);
   if (error) { showToast('Errore nel salvataggio', 'error'); return; }
@@ -2169,7 +2176,7 @@ async function initPushNotifications() {
 
 async function savePushSubscription(sub) {
   const json = sub.toJSON();
-  if (!json.keys) return;
+  if (!json.keys || !state.org?.id) return;
   await db.from('push_subscriptions').upsert({
     user_id:  state.user.id,
     org_id:   state.org.id,
