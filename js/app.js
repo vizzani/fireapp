@@ -1399,43 +1399,55 @@ async function buildPDFDoc(inv, responses, anom) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = 210, M = 15;
 
-  // Header
+  // Header — altezza 38mm per ospitare nome + dati azienda a sinistra
   doc.setFillColor(7, 53, 36);
-  doc.rect(0, 0, W, 32, 'F');
+  doc.rect(0, 0, W, 38, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18); doc.setFont('helvetica', 'bold');
-  doc.text('VERBALE DI MANUTENZIONE ANTINCENDIO', M, 13);
-  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-  doc.text('n. ' + (inv.report_number || '—') + '  -  ' + formatDate(inv.date), M, 22);
+  doc.setFontSize(15); doc.setFont('helvetica', 'bold');
+  doc.text('VERBALE DI MANUTENZIONE ANTINCENDIO', M, 11);
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+  doc.text('n. ' + (inv.report_number || '—') + '  -  ' + formatDate(inv.date), M, 19);
 
-  // Logo aziendale (piano Pro/Agenzia)
+  // Dati azienda manutentrice a sinistra (sotto numero verbale)
+  const orgLine1 = state.org?.name || '';
+  const orgLine2 = [
+    state.org?.vat_number ? 'P.IVA ' + state.org.vat_number : null,
+    [state.org?.address, state.org?.city].filter(Boolean).join(', ') || null,
+  ].filter(Boolean).join('  |  ');
+  const orgLine3 = [
+    state.org?.phone || null,
+    state.org?.email || null,
+  ].filter(Boolean).join('  |  ');
+
+  if (orgLine1) {
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text(orgLine1, M, 27);
+  }
+  if (orgLine2) {
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(180, 220, 200);
+    doc.text(orgLine2, M, 32);
+  }
+  if (orgLine3) {
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(180, 220, 200);
+    doc.text(orgLine3, M, 37);
+  }
+
+  // Logo aziendale a destra (piano Pro/Agenzia)
   const orgLogoPath = state.org?.logo_url;
-  let y = 40;
+  let y = 46;
   if (orgLogoPath && planAllows('logo')) {
     try {
       const { data: logoSigned } = await db.storage.from('reports').createSignedUrl(orgLogoPath, 300);
       if (logoSigned?.signedUrl) {
         const logoData = await fetchImageAsBase64(logoSigned.signedUrl);
         if (logoData) {
-          // Logo in alto a destra nell'header, max 40x24mm
-          doc.addImage(logoData, W - M - 40, 4, 40, 24, undefined, 'FAST');
+          doc.addImage(logoData, W - M - 40, 3, 40, 30, undefined, 'FAST');
         }
       }
-    } catch (e) { /* logo non disponibile, continua senza */ }
-    doc.setFontSize(9);
-    doc.text(state.org?.name || '', W - M, 32, { align: 'right', baseline: 'bottom' });
-  } else {
-    doc.text(state.org?.name || '', W - M, 22, { align: 'right' });
-  }
-  // Dati azienda manutentrice sotto il nome (piccolo, grigio chiaro)
-  const orgDetails = [
-    state.org?.vat_number ? 'P.IVA ' + state.org.vat_number : null,
-    [state.org?.address, state.org?.city].filter(Boolean).join(', ') || null,
-  ].filter(Boolean).join('  |  ');
-  if (orgDetails) {
-    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
-    doc.setTextColor(180, 220, 200);
-    doc.text(orgDetails, W - M, 29, { align: 'right' });
+    } catch (e) { /* logo non disponibile */ }
   }
   doc.setTextColor(0, 0, 0);
 
