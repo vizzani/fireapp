@@ -1545,22 +1545,12 @@ async function buildPDFDoc(inv, responses, anom) {
     });
   }
 
-  // Footer con numero pagina
+  // Footer: solo numero pagina e data — dati azienda già nell'header
   const pageCount = doc.getNumberOfPages();
   for (let p = 1; p <= pageCount; p++) {
     doc.setPage(p);
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
-    // Footer con dati azienda manutentrice
-    const orgFooterParts = [
-      state.org?.name || '',
-      state.org?.vat_number ? 'P.IVA ' + state.org.vat_number : null,
-      state.org?.phone || null,
-      state.org?.email || null,
-    ].filter(Boolean);
-    const orgFooterLine = orgFooterParts.join('  |  ');
-    doc.text(orgFooterLine, W / 2, 287, { align: 'center' });
-    doc.setFontSize(7);
-    doc.text('Pagina ' + p + '/' + pageCount + '  -  Generato da FireApp  -  ' + new Date().toLocaleDateString('it-IT'), W / 2, 292, { align: 'center' });
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+    doc.text('Pagina ' + p + '/' + pageCount + '  |  ' + new Date().toLocaleDateString('it-IT'), W / 2, 292, { align: 'center' });
   }
 
   // Firma
