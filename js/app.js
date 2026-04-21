@@ -1745,7 +1745,7 @@ async function showInviteTechModal() {
   if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   if (!(await checkTechnicianLimit())) return;
   const base = window.location.origin;
-  const inviteUrl = base + '/signup.html?join=' + (state.org?.id || '');
+  const inviteUrl = base + '/join.html?join=' + (state.org?.id || '');
   showModal(
     '<div class="modal-handle"></div>' +
     '<div class="modal-title">Invita tecnico</div>' +
