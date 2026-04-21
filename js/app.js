@@ -217,6 +217,23 @@ function showLogin() {
 function showApp() {
   el('page-login').style.display = 'none';
   el('app').classList.remove('hidden');
+  if (!state.org?.id) {
+    // Profilo senza organizzazione — mostra avviso e blocca
+    setTimeout(() => {
+      showModal(
+        '<div class="modal-handle"></div>' +
+        '<div class="modal-title">Configurazione incompleta</div>' +
+        '<p style="font-size:14px;color:var(--gray-600);margin-bottom:16px">Il tuo account non e collegato a nessuna organizzazione.<br><br>Questo accade se la registrazione non si e completata correttamente.</p>' +
+        '<div style="background:#f0fdf4;border-radius:8px;padding:12px;font-size:13px;color:#065f46;margin-bottom:16px">' +
+        '<strong>Soluzione:</strong> Vai su Supabase SQL Editor ed esegui:<br><br>' +
+        '<code style="font-size:11px">SELECT setup_new_organization(...);</code><br><br>' +
+        'Oppure registra un nuovo account dalla pagina di signup.' +
+        '</div>' +
+        '<button class="btn-primary" onclick="closeModal();signOut()">Esci e riprova</button>'
+      );
+    }, 500);
+    return;
+  }
   if (window._pendingAction === 'new-intervention') {
     window._pendingAction = null;
     setTimeout(showNewInterventionModal, 500);
@@ -382,6 +399,7 @@ function goBack() {
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   showLoading(true);
+  if (!state.org?.id) { showLoading(false); return; }
   try {
     const today = new Date().toISOString().split('T')[0];
     const clientIds = await getOrgClientIds();
@@ -727,7 +745,7 @@ async function saveNewClient() {
   if (!(await checkClientLimit())) return;
   showLoading(true);
   const { error } = await db.from('clients').insert({
-    organization_id: state.org.id,
+    organization_id: state.org?.id,
     name,
     address: el('f-address')?.value.trim() || null,
     city: el('f-city')?.value.trim() || null,
@@ -2831,6 +2849,10 @@ function updateImportMapping(field, colName) {
 
 async function doImportCSV() {
   if (!_importParsed?.length || !_importMapping.name) return;
+  if (!state.org?.id) {
+    showToast('Organizzazione non configurata — ricarica la pagina', 'error');
+    return;
+  }
   const limit = planLimits().clients;
 
   // Conta clienti esistenti
