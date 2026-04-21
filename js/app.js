@@ -286,9 +286,34 @@ el('user-badge')?.addEventListener('click', () => {
       <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:${planStyle.split(';color:')[0]};color:${planStyle.split(';color:')[1]}">Piano ${planLabel}</span>
     </div>
     ${isAdmin() ? '<button class="btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();showOrgSettingsModal()">Impostazioni azienda</button>' : ''}
+    <button class="btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();showAboutModal()">Informazioni su FireApp</button>
     <button class="btn-danger" style="width:100%" onclick="signOut()">Esci</button>
   `);
 });
+
+function showAboutModal() {
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div style="text-align:center;padding:8px 0 4px">' +
+    '<div style="width:56px;height:56px;background:#073524;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">' +
+    '<svg viewBox="0 0 24 24" style="width:26px;height:26px;stroke:white;fill:none;stroke-width:1.8;stroke-linecap:round"><path d="M12 2C8.5 5 6 8.5 6 12a6 6 0 0012 0c0-1.5-.5-3-1.5-4.5C15 9 14 10.5 13 11c.5-3-1-6.5-1-9z"/></svg>' +
+    '</div>' +
+    '<div style="font-size:22px;font-weight:800;color:#073524;margin-bottom:4px">FireApp</div>' +
+    '<div style="font-size:13px;color:var(--gray-500);margin-bottom:20px">Gestione manutenzione antincendio · v1.5</div>' +
+    '</div>' +
+    '<div style="background:var(--gray-50,#f9fafb);border-radius:10px;padding:14px 16px;margin-bottom:16px">' +
+    '<div style="font-size:12px;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Sviluppato da</div>' +
+    '<div style="font-size:15px;font-weight:700;color:var(--gray-900)">Matteo Vizzani</div>' +
+    '<div style="font-size:13px;color:var(--gray-500);margin-top:2px">RemaTarlazzi SpA</div>' +
+    '</div>' +
+    '<div style="background:var(--gray-50,#f9fafb);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--gray-600);line-height:1.6">' +
+    'Normative supportate: UNI 9994-1 · UNI 10779 · UNI 9795<br>' +
+    'UNI EN 54 · UNI 11224:2011 · D.M. 1/9/2021<br>' +
+    'Conforme D.M. 37/2008 · D.Lgs 81/2008' +
+    '</div>' +
+    '<button class="btn-outline" onclick="closeModal()">Chiudi</button>'
+  );
+}
 
 async function signOut() {
   closeModal();
