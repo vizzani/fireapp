@@ -174,6 +174,10 @@ function setupOfflineBanner() {
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
+function isAdmin() {
+  return state.profile?.role === 'admin' || state.profile?.role === 'superadmin';
+}
+
 async function loadProfile() {
   const { data, error } = await db.from('profiles').select('*, organizations(*)').eq('id', state.user.id).single();
   if (error || !data) return;
@@ -181,9 +185,28 @@ async function loadProfile() {
   state.org = data.organizations;
   const badge = el('user-badge');
   if (badge && data.full_name) badge.textContent = data.full_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  // Mostra tab Team solo agli admin
-  const teamNavItem = document.querySelector('.nav-item[data-screen="team"]');
-  if (teamNavItem) teamNavItem.style.display = data.role === 'admin' ? '' : 'none';
+  applyRoleUI();
+}
+
+function applyRoleUI() {
+  const admin = isAdmin();
+
+  // Tab Team — solo admin
+  const teamNav = document.querySelector('.nav-item[data-screen="team"]');
+  if (teamNav) teamNav.style.display = admin ? '' : 'none';
+
+  // FAB "Nuovo cliente" — solo admin
+  const fabClienti = el('fab-nuovo-cliente');
+  if (fabClienti) fabClienti.style.display = admin ? '' : 'none';
+  // Bottone import CSV — solo admin
+  const importBtn = el('btn-import-csv');
+  if (importBtn) importBtn.style.display = admin ? 'flex' : 'none';
+
+  // FAB "Nuovo intervento" in dashboard — tutti
+  // (i tecnici possono avviare interventi sui clienti esistenti)
+
+  // Dashboard: il tecnico vede solo i propri interventi di oggi,
+  // l'admin vede tutti quelli dell'org → gestito in loadDashboard()
 }
 
 function showLogin() {
@@ -198,6 +221,8 @@ function showApp() {
     window._pendingAction = null;
     setTimeout(showNewInterventionModal, 500);
   }
+  // Inizializza notifiche push (non bloccante)
+  setTimeout(initPushNotifications, 2000);
 }
 
 el('form-login')?.addEventListener('submit', async (e) => {
@@ -218,13 +243,20 @@ el('form-login')?.addEventListener('submit', async (e) => {
 });
 
 el('user-badge')?.addEventListener('click', () => {
+  const planLabel = (PLAN_LIMITS[state.org?.plan] || PLAN_LIMITS.trial).label;
+  const planColors = { trial:'#e0f2fe;color:#0369a1', starter:'#dbeafe;color:#1d4ed8', pro:'#e1f5ee;color:#065f46', agenzia:'#fef3c7;color:#92400e' };
+  const planStyle = planColors[state.org?.plan] || planColors.trial;
   showModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">Account</div>
-    <p style="font-size:14px;color:var(--gray-600);margin-bottom:20px">
+    <p style="font-size:14px;color:var(--gray-600);margin-bottom:6px">
       ${state.profile?.full_name || state.user?.email}<br>
       <span style="font-size:12px">${state.org?.name || 'Organizzazione non configurata'}</span>
     </p>
+    <div style="margin-bottom:20px">
+      <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:${planStyle.split(';color:')[0]};color:${planStyle.split(';color:')[1]}">Piano ${planLabel}</span>
+    </div>
+    ${isAdmin() ? '<button class="btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();showOrgSettingsModal()">Impostazioni azienda</button>' : ''}
     <button class="btn-danger" style="width:100%" onclick="signOut()">Esci</button>
   `);
 });
@@ -304,7 +336,7 @@ async function updatePassword() {
 const SCREEN_TITLES = {
   dashboard: 'Dashboard', clienti: 'Clienti',
   intervento: 'Intervento', scadenzario: 'Scadenzario',
-  verbali: 'Verbali', team: 'Team',
+  verbali: 'Verbali', team: 'Team', agenda: 'Agenda',
 };
 
 function navigate(screen, pushHistory = true) {
@@ -324,8 +356,14 @@ function navigate(screen, pushHistory = true) {
   el('btn-back').classList.toggle('hidden', state.navHistory.length === 0);
   if (screen === 'clienti') loadClienti();
   if (screen === 'scadenzario') loadScadenzario();
-  if (screen === 'verbali') loadVerbali();
+  if (screen === 'verbali') {
+    loadVerbali();
+    // Mostra toolbar export solo agli admin con piano che lo supporta
+    const vt = el('verbali-toolbar');
+    if (vt) vt.style.display = isAdmin() ? 'flex' : 'none';
+  }
   if (screen === 'team') loadTeam();
+  if (screen === 'agenda') loadAgenda();
   // Mostra il tab Team solo agli admin
   const teamNavItem = document.querySelector('.nav-item[data-screen="team"]');
   if (teamNavItem) teamNavItem.style.display = state.profile?.role === 'admin' ? '' : 'none';
@@ -347,8 +385,11 @@ async function loadDashboard() {
   try {
     const today = new Date().toISOString().split('T')[0];
     const clientIds = await getOrgClientIds();
+    const todayIntervQuery = db.from('interventions').select('*, clients(name, city)').eq('date', today).eq('organization_id', state.org?.id);
+    // Tecnico: vede solo i propri interventi. Admin: vede tutti dell'org.
+    if (!isAdmin()) todayIntervQuery.eq('technician_id', state.user.id);
     const [{ data: todayInterv }, { data: scadenze }, { data: anomalies }, { count: clientiCount }] = await Promise.all([
-      db.from('interventions').select('*, clients(name, city)').eq('date', today).eq('organization_id', state.org?.id),
+      todayIntervQuery,
       db.from('schedules').select('*').lte('next_date', addDays(today, 30)).eq('organization_id', state.org?.id).eq('status', 'scheduled'),
       clientIds.length ? db.from('anomalies').select('*').eq('resolved', false).in('client_id', clientIds) : Promise.resolve({ data: [] }),
       db.from('clients').select('*', { count: 'exact', head: true }).eq('organization_id', state.org?.id),
@@ -357,12 +398,21 @@ async function loadDashboard() {
     el('kpi-scadenze').textContent = scadenze?.length ?? 0;
     el('kpi-anomalie').textContent = anomalies?.length ?? 0;
     el('kpi-clienti').textContent = clientiCount ?? 0;
+    // Avviso trial scadenza
+    if ((state.org?.plan || 'trial') === 'trial') {
+      const trialEl = el('trial-banner');
+      if (trialEl) trialEl.style.display = '';
+    }
     const h = new Date().getHours();
     const greeting = h < 12 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera';
     el('greeting').textContent = greeting + (state.profile?.full_name ? ', ' + state.profile.full_name.split(' ')[0] : '');
     renderDashboardAlerts(scadenze, anomalies, today);
     renderTodayInterventions(todayInterv || []);
     state.clients = await fetchClients();
+    // Carica grafici in background (non bloccante)
+    loadDashboardCharts().catch(() => {});
+    // Controlla scadenze per notifiche locali
+    checkAndNotifyDeadlines(scadenze || []);
   } catch (err) {
     console.error('Dashboard error:', err);
     showToast('Errore nel caricamento dati', 'error');
@@ -452,27 +502,37 @@ async function openClient(clientId) {
 }
 
 function renderClientModal(client, equip, interventions) {
+  const adminActions = isAdmin();
   const equipHtml = equip.length
     ? equip.map(e => {
         const isP6 = e.installation_date && isOlderThan(e.installation_date, 12);
         const dateStr = e.installation_date ? ' · Inst. ' + formatDate(e.installation_date) : '';
-        const p6badge = isP6 ? '<span class="badge badge-red" style="margin-left:6px">P6</span>' : '';
+        const p6badge = isP6 ? '<span class=\"badge badge-red\" style=\"margin-left:6px\">P6</span>' : '';
         const brandStr = [e.brand, e.model].filter(Boolean).join(' ');
-        return '<div class="equip-item">' +
-          '<div class="equip-info">' +
-          '<div class="equip-name"><strong>' + (EQ_TYPE_LABELS[e.type] || e.type) + '</strong> &times; ' + e.quantity + p6badge + '</div>' +
-          '<div style="font-size:12px;color:var(--gray-500)">' + [brandStr, e.location, dateStr].filter(Boolean).join(' · ') + '</div>' +
-          '</div>' +
-          '<div class="equip-actions">' +
-          '<button class="btn-icon" onclick="showEditEquipmentModal(\'' + e.id + '\',\'' + client.id + '\')" title="Modifica">' +
-          '<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:var(--gray-500);fill:none;stroke-width:2;stroke-linecap:round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
-          '</button>' +
-          '<button class="btn-icon btn-icon-red" onclick="deleteEquipment(\'' + e.id + '\',\'' + client.id + '\')" title="Elimina">' +
-          '<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:var(--red-500,#dc2626);fill:none;stroke-width:2;stroke-linecap:round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>' +
-          '</button>' +
-          '</div></div>';
+        const qrTypes = ['irai', 'evac', 'sprinkler'];
+        const qrBtn = qrTypes.includes(e.type)
+          ? '<button class=\"btn-icon\" onclick=\"showEquipmentQR(\\'' + e.id + '\\',\\'' + (EQ_TYPE_LABELS[e.type]||e.type) + '\\')" title=\"QR Scheda\">' +
+            '<svg viewBox=\"0 0 24 24\" style=\"width:15px;height:15px;stroke:var(--green-mid,#0d6040);fill:none;stroke-width:2;stroke-linecap:round\"><rect x=\"3\" y=\"3\" width=\"5\" height=\"5\"/><rect x=\"16\" y=\"3\" width=\"5\" height=\"5\"/><rect x=\"3\" y=\"16\" width=\"5\" height=\"5\"/><path d=\"M21 16h-3v3M21 21h-2M16 16v5M16 21h1M8 8h.01M8 16h.01M16 8h.01\"/></svg>' +
+            '</button>'
+          : '';
+        // editBtns = edit + delete (admin only) + QR button (tutti)
+        const editBtns = adminActions
+          ? '<div class=\"equip-actions\">' + qrBtn +
+            '<button class=\"btn-icon\" onclick=\"showEditEquipmentModal(\\'' + e.id + '\\',\\'' + client.id + '\\')" title=\"Modifica\">' +
+            '<svg viewBox=\"0 0 24 24\" style=\"width:15px;height:15px;stroke:var(--gray-500);fill:none;stroke-width:2;stroke-linecap:round\"><path d=\"M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7\"/><path d=\"M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z\"/></svg>' +
+            '</button>' +
+            '<button class=\"btn-icon btn-icon-red\" onclick=\"deleteEquipment(\\'' + e.id + '\\',\\'' + client.id + '\\')" title=\"Elimina\">' +
+            '<svg viewBox=\"0 0 24 24\" style=\"width:15px;height:15px;stroke:var(--red-500,#dc2626);fill:none;stroke-width:2;stroke-linecap:round\"><polyline points=\"3 6 5 6 21 6\"/><path d=\"M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6\"/><path d=\"M10 11v6M14 11v6M9 6V4h6v2\"/></svg>' +
+            '</button>' +
+            '</div>'
+          : '';
+        return '<div class=\"equip-item\">' +
+          '<div class=\"equip-info\">' +
+          '<div class=\"equip-name\"><strong>' + (EQ_TYPE_LABELS[e.type] || e.type) + '</strong> &times; ' + e.quantity + p6badge + '</div>' +
+          '<div style=\"font-size:12px;color:var(--gray-500)\">' + [brandStr, e.location, dateStr].filter(Boolean).join(' · ') + '</div>' +
+          '</div>' + editBtns + (qrTypes.includes(e.type) && !adminActions ? '<div class="equip-actions">' + qrBtn + '</div>' : '') + '</div>';
       }).join('')
-    : '<div style="font-size:13px;color:var(--gray-500);padding:8px 0">Nessun impianto configurato</div>';
+    : '<div style=\"font-size:13px;color:var(--gray-500);padding:8px 0\">Nessun impianto configurato</div>';
 
   const intervHtml = interventions.length
     ? interventions.map(i =>
@@ -489,13 +549,13 @@ function renderClientModal(client, equip, interventions) {
     '<div class="modal-handle"></div>' +
     '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">' +
     '<div class="modal-title" style="margin-bottom:0">' + client.name + '</div>' +
-    '<button class="btn-secondary" style="padding:6px 12px;font-size:12px;flex-shrink:0;margin-left:10px" onclick="showEditClientModal(\'' + client.id + '\')">Modifica</button>' +
+    (adminActions ? '<button class="btn-secondary" style="padding:6px 12px;font-size:12px;flex-shrink:0;margin-left:10px" onclick="showEditClientModal(\'' + client.id + '\')">Modifica</button>' : '') +
     '</div>' +
     '<p style="font-size:13px;color:var(--gray-500);margin-bottom:18px">' + (infoLine || 'Indirizzo non inserito') + (client.email ? ' · ' + client.email : '') + '</p>' +
 
     '<div class="section-header" style="margin-bottom:10px">' +
     '<span>Impianti installati</span>' +
-    '<button class="btn-text" onclick="showAddEquipmentModal(\'' + client.id + '\')">+ Aggiungi</button>' +
+    (adminActions ? '<button class="btn-text" onclick="showAddEquipmentModal(\'' + client.id + '\')">+ Aggiungi</button>' : '') +
     '</div>' +
     '<div id="equip-list-modal">' + equipHtml + '</div>' +
 
@@ -503,13 +563,14 @@ function renderClientModal(client, equip, interventions) {
     '<div class="row-list" style="margin-bottom:14px">' + intervHtml + '</div>' +
 
     '<button class="btn-primary" onclick="closeModal();showNewInterventionModal(\'' + client.id + '\')">+ Nuovo intervento</button>' +
-    '<button class="btn-secondary" style="width:100%;margin-top:8px" onclick="showPresaInCaricoModal(\'' + client.id + '\')">Prendi in carico impianti (P1)</button>' +
+    (adminActions ? '<button class="btn-secondary" style="width:100%;margin-top:8px" onclick="showPresaInCaricoModal(\'' + client.id + '\')">Prendi in carico impianti (P1)</button>' : '') +
     '<button class="btn-outline" onclick="closeModal()">Chiudi</button>'
   );
 }
 
 // ─── MODIFICA CLIENTE ─────────────────────────────────────────────────────────
 function showEditClientModal(clientId) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   const client = state.clients.find(c => c.id === clientId) || {};
   const cats = ['commerciale','industriale','civile','scuola','ospedale','albergo'];
   const catLabels = { commerciale:'Commerciale', industriale:'Industriale', civile:'Civile / Condominio', scuola:'Scuola / Ufficio pubblico', ospedale:'Ospedale / Sanitario', albergo:'Albergo / Ricettivo' };
@@ -531,6 +592,7 @@ function showEditClientModal(clientId) {
 }
 
 async function saveEditClient(clientId) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   const name = el('ec-name')?.value.trim();
   if (!name) { showToast('Il nome e obbligatorio', 'error'); return; }
   showLoading(true);
@@ -556,6 +618,7 @@ async function saveEditClient(clientId) {
 
 // ─── GESTIONE EQUIPMENT ───────────────────────────────────────────────────────
 function showAddEquipmentModal(clientId) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   const types = Object.keys(EQ_TYPE_LABELS);
   showModal(
     '<div class="modal-handle"></div>' +
@@ -575,6 +638,7 @@ function showAddEquipmentModal(clientId) {
 }
 
 function showEditEquipmentModal(equipId, clientId) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   const eq = state.currentEquipment.find(e => e.id === equipId);
   if (!eq) { showToast('Impianto non trovato', 'error'); return; }
   const types = Object.keys(EQ_TYPE_LABELS);
@@ -596,6 +660,7 @@ function showEditEquipmentModal(equipId, clientId) {
 }
 
 async function saveEquipment(clientId, equipId) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   const type = el('eq-type')?.value;
   const qty = parseInt(el('eq-qty')?.value || '1');
   if (!type) { showToast('Seleziona il tipo impianto', 'error'); return; }
@@ -623,6 +688,7 @@ async function saveEquipment(clientId, equipId) {
 }
 
 async function deleteEquipment(equipId, clientId) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   if (!confirm('Eliminare questo impianto? L\'operazione non e reversibile.')) return;
   showLoading(true);
   const { error } = await db.from('equipment').delete().eq('id', equipId);
@@ -634,6 +700,7 @@ async function deleteEquipment(equipId, clientId) {
 
 // ─── AGGIUNGI CLIENTE ─────────────────────────────────────────────────────────
 function showAddClientModal() {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   showModal(
     '<div class="modal-handle"></div>' +
     '<div class="modal-title">Nuovo cliente</div>' +
@@ -653,8 +720,10 @@ function showAddClientModal() {
 }
 
 async function saveNewClient() {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   const name = el('f-name')?.value.trim();
   if (!name) { showToast('Il nome e obbligatorio', 'error'); return; }
+  if (!(await checkClientLimit())) return;
   showLoading(true);
   const { error } = await db.from('clients').insert({
     organization_id: state.org.id,
@@ -673,20 +742,20 @@ async function saveNewClient() {
 }
 
 // ─── NUOVO INTERVENTO ─────────────────────────────────────────────────────────
-function showNewInterventionModal(preselectedClientId = null) {
+function showNewInterventionModal(preselectedClientId = null, preselectedDate = null, preselectedEqType = null) {
   const clientOptions = state.clients.map(c =>
     '<option value="' + c.id + '"' + (c.id === preselectedClientId ? ' selected' : '') + '>' + c.name + '</option>'
   ).join('');
   const eqTypes = Object.keys(EQ_TYPE_LABELS);
   const eqCheckboxes = eqTypes.map(t =>
     '<label class="checkbox-label"><input type="checkbox" name="eq" value="' + t + '"' +
-    (['estintori', 'idranti'].includes(t) ? ' checked' : '') + '> ' + EQ_TYPE_LABELS[t] + '</label>'
+    ((preselectedEqType ? t === preselectedEqType : ['estintori', 'idranti'].includes(t)) ? ' checked' : '') + '> ' + EQ_TYPE_LABELS[t] + '</label>'
   ).join('');
   showModal(
     '<div class="modal-handle"></div>' +
     '<div class="modal-title">Nuovo intervento</div>' +
     '<div class="form-field"><label>Cliente *</label><select id="fi-client">' + (clientOptions || '<option value="">— Nessun cliente —</option>') + '</select></div>' +
-    '<div class="form-field"><label>Data intervento</label><input type="date" id="fi-date" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+    '<div class="form-field"><label>Data intervento</label><input type="date" id="fi-date" value="' + (preselectedDate || new Date().toISOString().split('T')[0]) + '"></div>' +
     '<div class="form-field"><label>Tipo</label><select id="fi-type">' +
     '<option value="semestrale">Semestrale</option>' +
     '<option value="annuale">Annuale</option>' +
@@ -1083,7 +1152,13 @@ function renderScadenzario(scadenze, filter) {
 // ─── VERBALI ──────────────────────────────────────────────────────────────────
 async function loadVerbali() {
   showLoading(true);
-  const { data } = await db.from('interventions').select('*, clients(name, city, email)').eq('organization_id', state.org?.id).in('status', ['completed', 'signed']).order('date', { ascending: false });
+  const verbaliQuery = db.from('interventions').select('*, clients(name, city, email)')
+    .eq('organization_id', state.org?.id)
+    .in('status', ['completed', 'signed'])
+    .order('date', { ascending: false });
+  // Tecnico: vede solo i verbali dei propri interventi
+  if (!isAdmin()) verbaliQuery.eq('technician_id', state.user.id);
+  const { data } = await verbaliQuery;
   showLoading(false);
   const cont = el('verbali-list');
   if (!data?.length) {
@@ -1275,9 +1350,27 @@ async function buildPDFDoc(inv, responses, anom) {
   doc.text('VERBALE DI MANUTENZIONE ANTINCENDIO', M, 13);
   doc.setFontSize(10); doc.setFont('helvetica', 'normal');
   doc.text('n. ' + (inv.report_number || '—') + '  -  ' + formatDate(inv.date), M, 22);
-  doc.text(state.org?.name || '', W - M, 22, { align: 'right' });
-  doc.setTextColor(0, 0, 0);
+
+  // Logo aziendale (piano Pro/Agenzia)
+  const orgLogoPath = state.org?.logo_url;
   let y = 40;
+  if (orgLogoPath && planAllows('logo')) {
+    try {
+      const { data: logoSigned } = await db.storage.from('reports').createSignedUrl(orgLogoPath, 300);
+      if (logoSigned?.signedUrl) {
+        const logoData = await fetchImageAsBase64(logoSigned.signedUrl);
+        if (logoData) {
+          // Logo in alto a destra nell'header, max 40x24mm
+          doc.addImage(logoData, W - M - 40, 4, 40, 24, undefined, 'FAST');
+        }
+      }
+    } catch (e) { /* logo non disponibile, continua senza */ }
+    doc.setFontSize(9);
+    doc.text(state.org?.name || '', W - M, 32, { align: 'right', baseline: 'bottom' });
+  } else {
+    doc.text(state.org?.name || '', W - M, 22, { align: 'right' });
+  }
+  doc.setTextColor(0, 0, 0);
 
   // Dati intervento
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
@@ -1386,6 +1479,18 @@ async function buildPDFDoc(inv, responses, anom) {
   if (inv.client_signature) {
     try { doc.addImage(inv.client_signature, 'PNG', 115, 255, 70, 18); } catch (e) { /* firma non valida */ }
   }
+
+  // Disclaimer legale firma — art. 3(10) eIDAS + GDPR
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(140, 140, 140);
+  const disclaimer = [
+    'La firma apposta e una firma elettronica semplice ai sensi del Regolamento UE n. 910/2014 (eIDAS), art. 3(10),',
+    'e non costituisce dato biometrico ai sensi del GDPR. I dati del presente verbale sono trattati dal manutentore',
+    'in qualita di titolare del trattamento ai sensi del Reg. UE 2016/679. Conservazione: 5 anni (D.M. 37/2008).',
+  ];
+  disclaimer.forEach((line, i) => {
+    doc.text(line, W / 2, 285 + i * 3.2, { align: 'center' });
+  });
+  doc.setTextColor(0, 0, 0);
 
   return doc.output('blob');
 }
@@ -1556,6 +1661,7 @@ function renderTeam(members) {
 }
 
 function showEditTeamMemberModal(memberId, name, currentRole) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   showModal(
     '<div class="modal-handle"></div>' +
     '<div class="modal-title">Modifica — ' + esc(name) + '</div>' +
@@ -1570,6 +1676,7 @@ function showEditTeamMemberModal(memberId, name, currentRole) {
 }
 
 async function saveTeamMemberRole(memberId) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   const role = el('tm-role')?.value;
   showLoading(true);
   const { error } = await db.from('profiles').update({ role }).eq('id', memberId);
@@ -1581,6 +1688,7 @@ async function saveTeamMemberRole(memberId) {
 }
 
 async function removeTeamMember(memberId, name) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   if (!confirm('Rimuovere ' + name + ' dal team?\nPerdra accesso all\'app ma i suoi dati (interventi, verbali) rimarranno conservati.')) return;
   showLoading(true);
   const { error } = await db.from('profiles').update({ organization_id: null, role: 'technician' }).eq('id', memberId);
@@ -1591,7 +1699,9 @@ async function removeTeamMember(memberId, name) {
   loadTeam();
 }
 
-function showInviteTechModal() {
+async function showInviteTechModal() {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
+  if (!(await checkTechnicianLimit())) return;
   const base = window.location.origin;
   const inviteUrl = base + '/signup.html?join=' + (state.org?.id || '');
   showModal(
@@ -1622,6 +1732,7 @@ function copyInviteLink() {
 
 // ─── PRESA IN CARICO (P1 / UNI 11224) ────────────────────────────────────────
 function showPresaInCaricoModal(clientId) {
+  if (!isAdmin()) { showToast('Operazione riservata agli admin', 'error'); return; }
   const client = state.clients.find(c => c.id === clientId);
   if (!client) return;
   const allTypes = Object.keys(EQ_TYPE_LABELS);
@@ -1662,4 +1773,1143 @@ async function createPresaInCarico(clientId) {
   closeModal();
   showToast('Presa in carico avviata', 'success');
   await openIntervention(data.id);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── PLAN LIMITS ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+const PLAN_LIMITS = {
+  trial:   { clients: 5,   technicians: 1,   logo: false, export: false, label: 'Trial' },
+  starter: { clients: 50,  technicians: 2,   logo: false, export: false, label: 'Starter' },
+  pro:     { clients: 9999, technicians: 9999, logo: true,  export: false, label: 'Pro' },
+  agenzia: { clients: 9999, technicians: 9999, logo: true,  export: true,  label: 'Agenzia' },
+};
+
+function planLimits() {
+  const plan = state.org?.plan || 'trial';
+  return PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
+}
+
+function planAllows(feature) {
+  return planLimits()[feature] === true || planLimits()[feature] > 0;
+}
+
+function showUpgradeModal(reason) {
+  const current = planLimits().label;
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div style="text-align:center;padding:8px 0 4px">' +
+    '<div style="font-size:32px;margin-bottom:12px">🔒</div>' +
+    '<div class="modal-title" style="margin-bottom:8px">Limite piano ' + current + '</div>' +
+    '<p style="font-size:14px;color:var(--gray-600);margin-bottom:20px;line-height:1.55">' + reason + '</p>' +
+    '</div>' +
+    '<div style="background:var(--green-50,#f0fdf4);border-radius:10px;padding:14px 16px;margin-bottom:20px">' +
+    '<div style="font-size:13px;font-weight:700;color:var(--green-700,#065f46);margin-bottom:8px">Passa a un piano superiore</div>' +
+    '<div style="font-size:13px;color:var(--green-600,#16a05e)">✓ Pro — tecnici e clienti illimitati, logo sul PDF</div>' +
+    '<div style="font-size:13px;color:var(--green-600,#16a05e);margin-top:4px">✓ Agenzia — tutto il Pro + export CSV</div>' +
+    '</div>' +
+    '<button class="btn-primary" onclick="closeModal()">Ho capito</button>' +
+    '<button class="btn-outline" onclick="closeModal()">Chiudi</button>'
+  );
+}
+
+async function checkClientLimit() {
+  const limit = planLimits().clients;
+  if (limit >= 9999) return true;
+  const { count } = await db.from('clients')
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', state.org.id);
+  if ((count || 0) >= limit) {
+    showUpgradeModal(
+      'Il piano <strong>' + planLimits().label + '</strong> permette fino a <strong>' + limit +
+      ' clienti</strong>. Hai raggiunto il limite.'
+    );
+    return false;
+  }
+  return true;
+}
+
+async function checkTechnicianLimit() {
+  const limit = planLimits().technicians;
+  if (limit >= 9999) return true;
+  const { count } = await db.from('profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', state.org.id);
+  if ((count || 0) >= limit) {
+    showUpgradeModal(
+      'Il piano <strong>' + planLimits().label + '</strong> permette fino a <strong>' + limit +
+      ' tecnico/i</strong>. Per aggiungere altri tecnici, passa al piano Pro.'
+    );
+    return false;
+  }
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── LOGO AZIENDALE ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function showOrgSettingsModal() {
+  const org = state.org || {};
+  const hasLogo = planAllows('logo');
+  const logoSection = hasLogo
+    ? '<div class="form-field">' +
+      '<label>Logo aziendale sul PDF</label>' +
+      (org.logo_url
+        ? '<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px">' +
+          '<img id="logo-preview" src="' + esc(org.logo_url) + '" style="height:40px;border:1px solid var(--gray-200);border-radius:6px;object-fit:contain;padding:4px">' +
+          '<button class="btn-secondary" style="font-size:12px" onclick="removeLogo()">Rimuovi</button>' +
+          '</div>'
+        : '') +
+      '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;color:var(--gray-500)">' +
+      '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--green-500);fill:none;stroke-width:2;stroke-linecap:round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+      (org.logo_url ? 'Sostituisci logo' : 'Carica logo (PNG/JPG, max 1MB)') +
+      '<input type="file" accept="image/png,image/jpeg" style="display:none" onchange="uploadLogo(this)">' +
+      '</label>' +
+      '</div>'
+    : '<div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:10px 12px;border-radius:0 8px 8px 0;font-size:13px;color:#78350f;margin-bottom:14px">' +
+      'Il logo sul PDF è disponibile dal piano <strong>Pro</strong>.' +
+      '</div>';
+
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div class="modal-title">Impostazioni azienda</div>' +
+    '<div class="form-field"><label>Nome azienda</label><input id="os-name" value="' + esc(org.name) + '"></div>' +
+    '<div class="form-field"><label>P.IVA</label><input id="os-vat" value="' + esc(org.vat_number) + '" placeholder="IT01234567890"></div>' +
+    '<div class="form-field"><label>Indirizzo</label><input id="os-address" value="' + esc(org.address) + '"></div>' +
+    '<div class="form-field"><label>Citta</label><input id="os-city" value="' + esc(org.city) + '"></div>' +
+    '<div class="form-field"><label>Telefono</label><input id="os-phone" value="' + esc(org.phone) + '"></div>' +
+    '<div class="form-field"><label>Email</label><input id="os-email" value="' + esc(org.email) + '"></div>' +
+    logoSection +
+    '<button class="btn-primary" onclick="saveOrgSettings()">Salva</button>' +
+    '<button class="btn-outline" onclick="closeModal()">Annulla</button>'
+  );
+}
+
+async function uploadLogo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 1024 * 1024) { showToast('Logo troppo grande (max 1MB)', 'error'); return; }
+  showLoading(true);
+  try {
+    const resized = await resizeImage(file, 400);
+    const path = state.org.id + '/logo.' + (file.type === 'image/png' ? 'png' : 'jpg');
+    const { error } = await db.storage.from('reports').upload(path, resized, { upsert: true, contentType: resized.type });
+    if (error) throw error;
+    const { data: signedData } = await db.storage.from('reports').createSignedUrl(path, 60 * 60 * 24 * 365);
+    const logoUrl = signedData?.signedUrl || '';
+    await db.from('organizations').update({ logo_url: path }).eq('id', state.org.id);
+    state.org.logo_url = path;
+    // Mostra anteprima
+    const preview = el('logo-preview');
+    if (preview) preview.src = logoUrl;
+    else {
+      const label = document.querySelector('#modal-content label[style*="cursor:pointer"]');
+      if (label) label.insertAdjacentHTML('beforebegin',
+        '<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px">' +
+        '<img id="logo-preview" src="' + logoUrl + '" style="height:40px;border:1px solid var(--gray-200);border-radius:6px;object-fit:contain;padding:4px">' +
+        '<button class="btn-secondary" style="font-size:12px" onclick="removeLogo()">Rimuovi</button>' +
+        '</div>');
+    }
+    showToast('Logo caricato', 'success');
+  } catch (err) {
+    showToast('Errore nel caricamento', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function removeLogo() {
+  if (!confirm('Rimuovere il logo aziendale?')) return;
+  showLoading(true);
+  await db.from('organizations').update({ logo_url: null }).eq('id', state.org.id);
+  state.org.logo_url = null;
+  showLoading(false);
+  showToast('Logo rimosso', 'success');
+  showOrgSettingsModal();
+}
+
+async function saveOrgSettings() {
+  showLoading(true);
+  const updates = {
+    name:       el('os-name')?.value.trim() || state.org.name,
+    vat_number: el('os-vat')?.value.trim() || null,
+    address:    el('os-address')?.value.trim() || null,
+    city:       el('os-city')?.value.trim() || null,
+    phone:      el('os-phone')?.value.trim() || null,
+    email:      el('os-email')?.value.trim() || null,
+  };
+  const { error } = await db.from('organizations').update(updates).eq('id', state.org.id);
+  showLoading(false);
+  if (error) { showToast('Errore nel salvataggio', 'error'); return; }
+  Object.assign(state.org, updates);
+  closeModal();
+  showToast('Impostazioni salvate', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── EXPORT CSV VERBALI ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function exportVerbaliCSV() {
+  if (!planAllows('export')) {
+    showUpgradeModal('L\'export CSV è disponibile dal piano <strong>Agenzia</strong>.');
+    return;
+  }
+  showLoading(true);
+  const { data } = await db.from('interventions')
+    .select('*, clients(name, address, city), profiles(full_name, cert_number)')
+    .eq('organization_id', state.org.id)
+    .in('status', ['completed', 'signed'])
+    .order('date', { ascending: false });
+  showLoading(false);
+  if (!data?.length) { showToast('Nessun verbale da esportare', 'error'); return; }
+
+  const headers = [
+    'N. Verbale', 'Data', 'Tipo', 'Cliente', 'Indirizzo', 'Citta',
+    'Tecnico', 'Cert. VVF', 'Impianti', 'Esito', 'Stato'
+  ];
+  const rows = data.map(inv => [
+    inv.report_number || '',
+    inv.date || '',
+    capitalize(inv.type || ''),
+    inv.clients?.name || '',
+    inv.clients?.address || '',
+    inv.clients?.city || '',
+    inv.profiles?.full_name || '',
+    inv.profiles?.cert_number || '',
+    (inv.equipment_types || []).map(t => EQ_TYPE_LABELS[t] || t).join('; '),
+    outcomeLabel(inv.outcome),
+    inv.status || '',
+  ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
+
+  const csv = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'verbali-' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV esportato (' + data.length + ' verbali)', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── QR IMPIANTO IRAI ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function showEquipmentQR(equipId, typeLabel) {
+  const baseUrl = window.location.origin;
+  const pageUrl = baseUrl + '/equipment.html?id=' + equipId;
+
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div class="modal-title">QR Scheda ' + typeLabel + '</div>' +
+    '<p style="font-size:14px;color:var(--gray-600);margin-bottom:16px">Scansiona per vedere lo stato aggiornato dell\'impianto in tempo reale. Stampa e apponi fisicamente all\'impianto.</p>' +
+    '<div id="qr-canvas-wrap" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:16px">' +
+    '<canvas id="qr-canvas" style="border:4px solid white;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.12)"></canvas>' +
+    '<div style="font-size:11px;color:var(--gray-400);text-align:center;max-width:200px;word-break:break-all">' + pageUrl + '</div>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px">' +
+    '<button class="btn-primary" style="flex:1" onclick="downloadQR()">Scarica QR</button>' +
+    '<button class="btn-secondary" style="flex:1;margin-top:0" onclick="printQR()">Stampa QR</button>' +
+    '</div>' +
+    '<button class="btn-secondary" style="width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="closeModal();generateCartellino(\'' + equipId + '\')">' +
+    '<svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+    'Genera cartellino A5 (PDF)' +
+    '</button>' +
+    '<button class="btn-outline" onclick="closeModal()">Chiudi</button>'
+  );
+
+  // Genera QR con qrcode-generator da CDN
+  await loadQRLib();
+  generateQRCanvas(pageUrl, equipId, typeLabel);
+}
+
+function loadQRLib() {
+  return new Promise((resolve) => {
+    if (window.QRCode) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+    s.onload = resolve;
+    s.onerror = resolve; // fallback graceful
+    document.head.appendChild(s);
+  });
+}
+
+function generateQRCanvas(url, equipId, typeLabel) {
+  const canvas = document.getElementById('qr-canvas');
+  if (!canvas) return;
+  if (!window.QRCode) {
+    // Fallback: link testuale se la lib non carica
+    const wrap = document.getElementById('qr-canvas-wrap');
+    if (wrap) wrap.innerHTML = '<p style="font-size:13px;color:var(--gray-600);text-align:center">QR non disponibile.<br>Copia il link qui sotto.</p>';
+    return;
+  }
+  // Salva dati sul canvas per download/stampa
+  canvas.dataset.url = url;
+  canvas.dataset.label = typeLabel;
+
+  QRCode.toCanvas(canvas, url, {
+    width: 200,
+    margin: 2,
+    color: { dark: '#073524', light: '#ffffff' },
+    errorCorrectionLevel: 'M',
+  }, (err) => {
+    if (err) console.warn('QR generation error:', err);
+  });
+}
+
+function downloadQR() {
+  const canvas = document.getElementById('qr-canvas');
+  if (!canvas) return;
+
+  // Crea canvas con label sotto il QR
+  const label = canvas.dataset.label || 'IRAI';
+  const out = document.createElement('canvas');
+  const W = canvas.width, H = canvas.height + 50;
+  out.width = W; out.height = H;
+  const ctx = out.getContext('2d');
+
+  // Sfondo bianco
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  // QR
+  ctx.drawImage(canvas, 0, 0);
+
+  // Label
+  ctx.fillStyle = '#073524';
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('FireApp · ' + label, W / 2, canvas.height + 18);
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText('Scansiona per la scheda aggiornata', W / 2, canvas.height + 34);
+
+  const a = document.createElement('a');
+  a.href = out.toDataURL('image/png');
+  a.download = 'qr-irai-' + (canvas.dataset.url || '').split('id=')[1]?.slice(0, 8) + '.png';
+  a.click();
+}
+
+function printQR() {
+  const canvas = document.getElementById('qr-canvas');
+  if (!canvas) return;
+  const dataUrl = canvas.toDataURL('image/png');
+  const label = canvas.dataset.label || 'IRAI';
+  const url = canvas.dataset.url || '';
+
+  const win = window.open('', '_blank', 'width=400,height=500');
+  win.document.write(`
+    <!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>QR Impianto ${label}</title>
+    <style>
+      body { font-family: system-ui, sans-serif; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; min-height: 100vh; margin: 0;
+             background: white; color: #073524; }
+      img { width: 200px; height: 200px; border: 4px solid #073524; border-radius: 8px; margin-bottom: 12px; }
+      h2 { font-size: 16px; font-weight: 800; margin: 0 0 4px; }
+      p  { font-size: 11px; color: #6b7280; margin: 0 0 4px; text-align: center; max-width: 220px; word-break: break-all; }
+      .brand { font-size: 11px; color: #6b7280; margin-top: 8px; }
+    </style>
+    </head><body>
+    <img src="${dataUrl}" alt="QR">
+    <h2>Impianto ${label}</h2>
+    <p>Scansiona per la scheda aggiornata</p>
+    <p>${url}</p>
+    <p class="brand">Gestito con FireApp</p>
+    <script>window.onload = () => { window.print(); window.close(); }<\/script>
+    </body></html>
+  `);
+  win.document.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── 1. NOTIFICHE PUSH SCADENZE ───────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Chiave pubblica VAPID — sostituisci con quella generata da:
+// npx web-push generate-vapid-keys
+const VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
+
+async function initPushNotifications() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+  if (Notification.permission === 'denied') return;
+
+  // Chiedi permesso la prima volta — silenzioso se già concesso
+  if (Notification.permission === 'default') {
+    // Non chiediamo subito: aspettiamo che l'utente interagisca per 10s
+    await new Promise(r => setTimeout(r, 10000));
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return;
+  }
+
+  // Registra subscription push
+  try {
+    const sw = await navigator.serviceWorker.ready;
+    let sub = await sw.pushManager.getSubscription();
+    if (!sub) {
+      sub = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    // Salva/aggiorna su Supabase
+    await savePushSubscription(sub);
+  } catch (err) {
+    // Silenzioso — push non critico
+    console.warn('[Push] Subscription error:', err);
+  }
+}
+
+async function savePushSubscription(sub) {
+  const json = sub.toJSON();
+  if (!json.keys) return;
+  await db.from('push_subscriptions').upsert({
+    user_id:  state.user.id,
+    org_id:   state.org.id,
+    endpoint: json.endpoint,
+    p256dh:   json.keys.p256dh,
+    auth_key: json.keys.auth,
+    user_agent: navigator.userAgent.slice(0, 200),
+  }, { onConflict: 'user_id,endpoint' });
+}
+
+// Notifiche locali (quando l'app è aperta) — non richiedono server
+function checkAndNotifyDeadlines(scadenze) {
+  if (!scadenze?.length) return;
+  if (Notification.permission !== 'granted') return;
+  // Evita di mostrare più di una notifica per sessione
+  if (window._notifiedThisSession) return;
+  window._notifiedThisSession = true;
+
+  const today = new Date().toISOString().split('T')[0];
+  const overdue  = scadenze.filter(s => s.next_date < today);
+  const thisWeek = scadenze.filter(s => s.next_date >= today && daysBetween(today, s.next_date) <= 7);
+
+  if (overdue.length > 0) {
+    new Notification('FireApp — Manutenzioni scadute', {
+      body: overdue.length + ' manutenzioni sono scadute e richiedono attenzione.',
+      icon: '/icons/icon-192.png',
+      tag:  'fireapp-overdue',
+      data: { url: '/?screen=scadenzario' },
+    });
+  } else if (thisWeek.length > 0) {
+    const first = thisWeek[0];
+    new Notification('FireApp — Scadenze in arrivo', {
+      body: thisWeek.length + ' scadenza/e nei prossimi 7 giorni. Prima: ' + (first.clients?.name || '') + '.',
+      icon: '/icons/icon-192.png',
+      tag:  'fireapp-upcoming',
+      data: { url: '/?screen=scadenzario' },
+    });
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── 2. DASHBOARD GRAFICI ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _chartsLoaded = false;
+
+async function loadDashboardCharts() {
+  // Carica Chart.js solo una volta
+  if (!window.Chart) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  // Distruggi chart precedenti se esistono (es. refresh)
+  ['chart-interventi', 'chart-esiti'].forEach(id => {
+    const inst = Chart.getChart(id);
+    if (inst) inst.destroy();
+  });
+
+  // Queries parallele
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+  sixMonthsAgo.setDate(1);
+  const fromDate = sixMonthsAgo.toISOString().split('T')[0];
+
+  const [{ data: intervs }, { data: all_interv }] = await Promise.all([
+    db.from('interventions')
+      .select('date, outcome, status')
+      .eq('organization_id', state.org?.id)
+      .in('status', ['completed', 'signed'])
+      .gte('date', fromDate),
+    db.from('interventions')
+      .select('outcome')
+      .eq('organization_id', state.org?.id)
+      .in('status', ['completed', 'signed']),
+  ]);
+
+  renderBarChart(intervs || []);
+  renderDonutChart(all_interv || []);
+  _chartsLoaded = true;
+}
+
+function renderBarChart(interventions) {
+  const ctx = document.getElementById('chart-interventi');
+  if (!ctx) return;
+
+  // Ultimi 6 mesi
+  const months = [];
+  const counts = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const key = d.toISOString().slice(0, 7); // YYYY-MM
+    months.push(d.toLocaleDateString('it-IT', { month: 'short', year: '2-digit' }));
+    counts.push(interventions.filter(inv => inv.date?.startsWith(key)).length);
+  }
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [{
+        data: counts,
+        backgroundColor: '#16a05e',
+        borderRadius: 6,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => ctx.raw + ' interventi',
+      }}},
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+      },
+    },
+  });
+}
+
+function renderDonutChart(interventions) {
+  const ctx = document.getElementById('chart-esiti');
+  if (!ctx) return;
+  if (!interventions.length) return;
+
+  const counts = {
+    conforme: interventions.filter(i => i.outcome === 'conforme').length,
+    anomalie: interventions.filter(i => i.outcome === 'anomalie').length,
+    non_conforme: interventions.filter(i => i.outcome === 'non_conforme').length,
+  };
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const pct = total ? Math.round(counts.conforme / total * 100) : 0;
+
+  // Aggiorna label percentuale
+  const lbl = document.getElementById('chart-esiti-pct');
+  if (lbl) lbl.textContent = pct + '%';
+
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Conformi', 'Con anomalie', 'Non conformi'],
+      datasets: [{
+        data: [counts.conforme, counts.anomalie, counts.non_conforme],
+        backgroundColor: ['#16a05e', '#d97706', '#dc2626'],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '72%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.raw } },
+      },
+    },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── 3. CARTELLINO PDF STAMPABILE ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function generateCartellino(equipId) {
+  showLoading(true);
+  try {
+    // Recupera dati impianto via RPC pubblica (già esistente)
+    const { data, error } = await db.rpc('get_public_equipment_status', { p_equipment_id: equipId });
+    if (error || !data) throw new Error('Impianto non trovato');
+
+    const eq     = data.equipment;
+    const client = data.client;
+    const org    = data.organization;
+    const last   = data.last_intervention;
+    const next   = data.next_schedule;
+
+    const { jsPDF } = window.jspdf;
+    // A5 landscape (148 x 105 mm) — ideale per etichetta da attaccare
+    const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'landscape' });
+    const W = 148, H = 105;
+
+    // ── Sfondo header verde ──
+    doc.setFillColor(7, 53, 36);
+    doc.rect(0, 0, W, 22, 'F');
+
+    // Logo FireApp testuale
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text('FireApp', 6, 10);
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text('Scheda manutenzione impianto', 6, 16);
+
+    // Tipo impianto (in alto a destra)
+    const eqLabel = (({ estintori:'ESTINTORI', idranti:'IDRANTI', irai:'IRAI',
+      evac:'EVAC', sprinkler:'SPRINKLER', porte_rei:'PORTE REI' })[eq.type] || eq.type.toUpperCase());
+    doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+    doc.text(eqLabel, W - 6, 14, { align: 'right' });
+
+    doc.setTextColor(0, 0, 0);
+    let y = 28;
+
+    // ── Colonna sinistra: dati impianto ──
+    const col1 = 6, col2 = 74;
+
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text('IMPIANTO', col1, y);
+    doc.setLineWidth(0.3); doc.setDrawColor(7, 53, 36);
+    doc.line(col1, y + 1, 68, y + 1);
+    y += 5;
+
+    const rows1 = [
+      ['Cliente', client.name || '—'],
+      ['Indirizzo', [client.address, client.city].filter(Boolean).join(', ') || '—'],
+      ['Marca / Modello', [eq.brand, eq.model].filter(Boolean).join(' ') || '—'],
+      ['Posizione', eq.location || '—'],
+      ['Quantita', String(eq.quantity || 1)],
+      ['Installazione', eq.installation_date ? cartellinoFmt(eq.installation_date) : '—'],
+      ['Manutentore', org.name || '—'],
+    ];
+
+    doc.setFontSize(7.5);
+    rows1.forEach(([k, v]) => {
+      doc.setFont('helvetica', 'bold'); doc.text(k + ':', col1, y);
+      doc.setFont('helvetica', 'normal');
+      const lines = doc.splitTextToSize(v, 38);
+      doc.text(lines, col1 + 22, y);
+      y += lines.length > 1 ? 5.5 * lines.length : 5;
+    });
+
+    // ── Colonna destra: manutenzione ──
+    let y2 = 33;
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+    doc.text('MANUTENZIONE', col2, y2);
+    doc.setLineWidth(0.3); doc.setDrawColor(7, 53, 36);
+    doc.line(col2, y2 + 1, W - 45, y2 + 1);
+    y2 += 5;
+
+    const typeLabels = {
+      semestrale:'Semestrale', annuale:'Annuale', mensile:'Mensile',
+      triennale:'Triennale', decennale:'Decennale',
+    };
+
+    const rows2 = [
+      ['Ultimo intervento', last ? cartellinoFmt(last.date) : '—'],
+      ['Tipo', last ? (last.type === 'p1' ? 'Presa in carico' : capitalize(last.type)) : '—'],
+      ['Tecnico', last?.technician_name || '—'],
+      ['Esito', last ? ({'conforme':'Conforme', 'anomalie':'Con anomalie', 'non_conforme':'Non conforme'}[last.outcome] || '—') : '—'],
+      ['Verbale n.', last?.report_number || '—'],
+      ['Prossima scad.', next ? cartellinoFmt(next.next_date) + ' (' + (typeLabels[next.maintenance_type] || next.maintenance_type) + ')' : '—'],
+    ];
+
+    doc.setFontSize(7.5);
+    rows2.forEach(([k, v]) => {
+      doc.setFont('helvetica', 'bold'); doc.text(k + ':', col2, y2);
+      doc.setFont('helvetica', 'normal');
+      const lines = doc.splitTextToSize(v, 35);
+      doc.text(lines, col2 + 26, y2);
+      y2 += 5;
+    });
+
+    // ── Badge esito ──
+    if (last) {
+      const outcomeColor = { conforme:[22,160,94], anomalie:[217,119,6], non_conforme:[220,38,38] };
+      const [r, g, b] = outcomeColor[last.outcome as string] || [107,114,128];
+      doc.setFillColor(r, g, b);
+      doc.roundedRect(col2, y2 + 1, 35, 7, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+      const badge = { conforme:'✓ CONFORME', anomalie:'⚠ CON ANOMALIE', non_conforme:'✗ NON CONFORME' }[last.outcome as string] || '—';
+      doc.text(badge, col2 + 17.5, y2 + 5.8, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // ── QR code (in basso a destra) ──
+    const qrUrl = window.location.origin + '/equipment.html?id=' + eq.id;
+    await loadQRLib();
+    if (window.QRCode) {
+      const qrCanvas = document.createElement('canvas');
+      await new Promise(r => QRCode.toCanvas(qrCanvas, qrUrl, { width: 160, margin: 1, color: { dark: '#073524', light: '#ffffff' } }, () => r()));
+      const qrData = qrCanvas.toDataURL('image/png');
+      const qrX = W - 40, qrY = H - 42;
+      doc.addImage(qrData, 'PNG', qrX, qrY, 34, 34);
+      doc.setFontSize(6); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 100, 100);
+      doc.text('Scansiona per', qrX + 17, qrY + 36, { align: 'center' });
+      doc.text('scheda aggiornata', qrX + 17, qrY + 39.5, { align: 'center' });
+    }
+
+    // ── Footer ──
+    doc.setFontSize(6); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+    doc.text('Generato con FireApp · ' + new Date().toLocaleDateString('it-IT'), W / 2, H - 3, { align: 'center' });
+
+    // ── Bordo ──
+    doc.setDrawColor(220, 220, 220); doc.setLineWidth(0.5);
+    doc.rect(1, 1, W - 2, H - 2);
+
+    doc.save('cartellino-' + eqLabel.toLowerCase() + '-' + (client.name || 'impianto').replace(/\s+/g, '-').slice(0, 20) + '.pdf');
+    showToast('Cartellino scaricato', 'success');
+
+  } catch (err) {
+    console.error('Cartellino error:', err);
+    showToast('Errore generazione cartellino', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// Helper per il cartellino
+function cartellinoFmt(d) {
+  if (!d) return '—';
+  return new Date(d + 'T12:00:00').toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── AGENDA SETTIMANALE ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let agendaWeekOffset = 0; // 0 = settimana corrente, -1 = precedente, +1 = successiva
+
+function agendaWeek(delta) {
+  agendaWeekOffset += delta;
+  loadAgenda();
+}
+
+function agendaGoToday() {
+  agendaWeekOffset = 0;
+  loadAgenda();
+}
+
+function getWeekDates(offset) {
+  const now = new Date();
+  const dow  = now.getDay(); // 0=dom, 1=lun ...
+  const diff = dow === 0 ? -6 : 1 - dow; // offset to monday
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diff + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
+async function loadAgenda() {
+  const days  = getWeekDates(agendaWeekOffset);
+  const from  = days[0].toISOString().split('T')[0];
+  const to    = days[6].toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+
+  // Label settimana
+  const opts = { day: 'numeric', month: 'long' };
+  const label = days[0].toLocaleDateString('it-IT', opts) + ' — ' + days[6].toLocaleDateString('it-IT', { ...opts, year: 'numeric' });
+  const weekLbl = el('agenda-week-label');
+  if (weekLbl) weekLbl.textContent = label;
+
+  showLoading(true);
+  const intervQuery = db.from('interventions')
+    .select('*, clients(name, city)')
+    .eq('organization_id', state.org?.id)
+    .gte('date', from)
+    .lte('date', to)
+    .order('date');
+  if (!isAdmin()) intervQuery.eq('technician_id', state.user.id);
+
+  const [{ data: interventions }, { data: scadenze }] = await Promise.all([
+    intervQuery,
+    db.from('schedules')
+      .select('*, clients(name, city)')
+      .eq('organization_id', state.org?.id)
+      .eq('status', 'scheduled')
+      .lte('next_date', addDays(today, 14))
+      .order('next_date'),
+  ]);
+  showLoading(false);
+
+  renderAgendaDays(days, interventions || [], today);
+  renderAgendaDeadlines(scadenze || [], today);
+}
+
+function renderAgendaDays(days, interventions, today) {
+  const cont = el('agenda-days');
+  if (!cont) return;
+  const DAY_NAMES = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+
+  cont.innerHTML = days.map(day => {
+    const dateStr = day.toISOString().split('T')[0];
+    const isToday = dateStr === today;
+    const dayIntervs = interventions.filter(i => i.date === dateStr);
+    const dayName = DAY_NAMES[day.getDay()];
+    const dateLabel = day.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+
+    const intervHtml = dayIntervs.length
+      ? dayIntervs.map(inv => {
+          const dotCls = inv.status === 'in_progress' ? 'in-progress' : inv.status === 'completed' ? 'completed' : 'draft';
+          const tags = (inv.equipment_types || []).map(t => EQ_TYPE_LABELS[t] || t).join(', ');
+          return `<div class="agenda-interv-item" onclick="openIntervention('${inv.id}')">
+            <div class="agenda-interv-dot ${dotCls}"></div>
+            <div class="agenda-interv-body">
+              <div class="agenda-interv-name">${inv.clients?.name || '—'}</div>
+              <div class="agenda-interv-sub">${tags} · ${capitalize(inv.type)}</div>
+            </div>
+            ${statusBadge(inv.status)}
+          </div>`;
+        }).join('')
+      : `<div class="agenda-empty">Nessun intervento</div>`;
+
+    const addBtn = isAdmin()
+      ? `<button class="agenda-add-btn" onclick="showNewInterventionModalForDate('${dateStr}')" title="Aggiungi intervento">+</button>`
+      : '';
+
+    return `<div class="agenda-day">
+      <div class="agenda-day-header${isToday ? ' today' : ''}">
+        <span class="agenda-day-name">${dayName}${isToday ? ' · Oggi' : ''}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="agenda-day-date">${dateLabel}</span>
+          ${addBtn}
+        </div>
+      </div>
+      ${intervHtml}
+    </div>`;
+  }).join('');
+}
+
+function renderAgendaDeadlines(scadenze, today) {
+  const cont = el('agenda-deadlines-section');
+  if (!cont || !scadenze.length) { if (cont) cont.innerHTML = ''; return; }
+
+  const overdue = scadenze.filter(s => s.next_date < today);
+  const upcoming = scadenze.filter(s => s.next_date >= today);
+
+  const EQ = EQ_TYPE_LABELS;
+  const itemHtml = (s) => {
+    const isOver = s.next_date < today;
+    const daysLeft = daysBetween(today, s.next_date);
+    const daysLabel = isOver
+      ? Math.abs(daysLeft) + ' gg fa'
+      : daysLeft === 0 ? 'Oggi'
+      : 'tra ' + daysLeft + ' gg';
+    const dateStr = new Date(s.next_date + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+    return `<div class="agenda-deadline-item${isOver ? ' overdue' : ''}" onclick="closeModal && state.clients.length > 0 ? showNewInterventionModalForDeadline('${s.client_id}', '${s.equipment_type}') : null">
+      <div class="scad-dot ${isOver ? 'dot-red' : daysLeft <= 7 ? 'dot-amber' : 'dot-green'}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--gray-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.clients?.name || '—'} · ${EQ[s.equipment_type] || s.equipment_type}</div>
+        <div style="font-size:11px;color:var(--gray-500)">${capitalize(s.maintenance_type)} · ${dateStr}</div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:${isOver ? 'var(--red)' : daysLeft <= 7 ? 'var(--amber)' : 'var(--green-light)'};">${daysLabel}</div>
+    </div>`;
+  };
+
+  cont.innerHTML =
+    (overdue.length ? `<div class="agenda-deadlines-title" style="color:var(--red)"><svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Scaduti (${overdue.length})</div>${overdue.map(itemHtml).join('')}` : '') +
+    (upcoming.length ? `<div class="agenda-deadlines-title" style="margin-top:${overdue.length ? '14px' : '0'}">Da pianificare · prossimi 14 giorni</div>${upcoming.map(itemHtml).join('')}` : '');
+}
+
+// Apre il modal nuovo intervento con la data pre-selezionata
+function showNewInterventionModalForDate(dateStr) {
+  showNewInterventionModal(null, dateStr);
+}
+
+// Apre il modal nuovo intervento pre-selezionando cliente e tipo impianto
+function showNewInterventionModalForDeadline(clientId, equipType) {
+  showNewInterventionModal(clientId, null, equipType);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── IMPORT CSV CLIENTI ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Mapping colonne CSV → campi DB (case insensitive, varianti italiane comuni)
+const CSV_COL_MAP = {
+  name:         ['nome', 'ragione sociale', 'azienda', 'cliente', 'denominazione', 'name', 'company'],
+  address:      ['indirizzo', 'via', 'address', 'street'],
+  city:         ['citta', 'città', 'comune', 'city'],
+  province:     ['provincia', 'prov', 'province'],
+  phone:        ['telefono', 'tel', 'phone', 'cellulare', 'mobile'],
+  email:        ['email', 'mail', 'e-mail', 'posta'],
+  contact_name: ['referente', 'contatto', 'contact', 'responsabile'],
+  category:     ['categoria', 'tipo', 'category', 'settore'],
+};
+
+const CATEGORY_MAP = {
+  'commerciale': 'commerciale', 'commercio': 'commerciale', 'negozio': 'commerciale',
+  'industriale': 'industriale', 'industria': 'industriale', 'fabbrica': 'industriale',
+  'civile': 'civile', 'condominio': 'civile', 'residenziale': 'civile',
+  'scuola': 'scuola', 'ufficio': 'scuola', 'pubblico': 'scuola',
+  'ospedale': 'ospedale', 'sanitario': 'ospedale', 'clinica': 'ospedale',
+  'albergo': 'albergo', 'hotel': 'albergo', 'ricettivo': 'albergo',
+};
+
+let _importParsed = null; // righe CSV parsate
+let _importMapping = {};  // mapping colonne
+
+function showImportCSVModal() {
+  if (!isAdmin()) return;
+  _importParsed = null;
+  _importMapping = {};
+
+  showModal(
+    '<div class="modal-handle"></div>' +
+    '<div class="modal-title">Importa clienti da CSV</div>' +
+    '<p style="font-size:13px;color:var(--gray-500);margin-bottom:14px">Carica un file CSV o Excel (.csv) con i tuoi clienti. Le colonne vengono riconosciute automaticamente.</p>' +
+
+    '<div class="import-drop-zone" id="import-drop-zone" onclick="el(\'import-file-input\').click()">' +
+      '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+      '<p>Trascina il file qui oppure tocca per selezionarlo</p>' +
+      '<span>CSV, massimo 5MB · Encoding UTF-8 o ISO-8859-1</span>' +
+      '<input type="file" id="import-file-input" accept=".csv,text/csv" style="display:none" onchange="handleImportFile(this.files[0])">' +
+    '</div>' +
+
+    '<div style="background:var(--gray-50);border-radius:8px;padding:10px 12px;margin-bottom:14px">' +
+      '<div style="font-size:11px;font-weight:700;color:var(--gray-500);margin-bottom:6px">FORMATO CONSIGLIATO</div>' +
+      '<div style="font-size:12px;color:var(--gray-600);font-family:monospace">Nome, Indirizzo, Citta, Telefono, Email</div>' +
+      '<div style="font-size:11px;color:var(--gray-400);margin-top:4px">Prima riga = intestazioni. Separatore: virgola o punto e virgola.</div>' +
+    '</div>' +
+
+    '<div id="import-preview-area"></div>' +
+    '<div id="import-result-area"></div>' +
+
+    '<button class="btn-primary hidden" id="btn-do-import" onclick="doImportCSV()">Importa clienti</button>' +
+    '<button class="btn-outline" onclick="closeModal()">Annulla</button>'
+  );
+
+  // Drag & drop
+  const zone = el('import-drop-zone');
+  zone?.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone?.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone?.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleImportFile(file);
+  });
+}
+
+async function handleImportFile(file) {
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('File troppo grande (max 5MB)', 'error'); return; }
+
+  // Carica PapaParse da CDN
+  if (!window.Papa) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    encoding: 'UTF-8',
+    complete: result => {
+      if (result.errors.length && !result.data.length) {
+        // Prova con ISO-8859-1
+        Papa.parse(file, {
+          header: true, skipEmptyLines: true, encoding: 'ISO-8859-1',
+          complete: r2 => processCSVResult(r2),
+        });
+        return;
+      }
+      processCSVResult(result);
+    },
+  });
+}
+
+function processCSVResult(result) {
+  if (!result.data?.length) {
+    el('import-preview-area').innerHTML = '<p style="color:var(--red);font-size:13px">Nessuna riga trovata nel file. Verifica il formato.</p>';
+    return;
+  }
+
+  _importParsed = result.data;
+  const headers = result.meta.fields || [];
+
+  // Auto-detect mapping
+  _importMapping = {};
+  headers.forEach(h => {
+    const hLow = h.toLowerCase().trim();
+    Object.entries(CSV_COL_MAP).forEach(([field, aliases]) => {
+      if (!_importMapping[field] && aliases.some(a => hLow.includes(a))) {
+        _importMapping[field] = h;
+      }
+    });
+  });
+
+  renderImportPreview(headers, result.data.slice(0, 5));
+}
+
+function renderImportPreview(headers, previewRows) {
+  const area = el('import-preview-area');
+  const btnImport = el('btn-do-import');
+  if (!area) return;
+
+  const hasName = !!_importMapping.name;
+  const total = _importParsed?.length || 0;
+
+  // Mapping selector per ogni campo
+  const fieldLabels = {
+    name:'Nome / Ragione sociale *', address:'Indirizzo', city:'Città',
+    province:'Provincia', phone:'Telefono', email:'Email',
+    contact_name:'Referente', category:'Categoria',
+  };
+
+  const mappingHtml = Object.entries(fieldLabels).map(([field, label]) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <label style="font-size:12px;color:var(--gray-600);width:140px;flex-shrink:0">${label}</label>
+      <select style="flex:1;font-size:12px;padding:4px 8px;border:1px solid var(--gray-300);border-radius:6px" onchange="updateImportMapping('${field}', this.value)">
+        <option value="">— non importare —</option>
+        ${(Object.keys(previewRows[0] || {})).map(h =>
+          `<option value="${h}" ${_importMapping[field] === h ? 'selected' : ''}>${h}</option>`
+        ).join('')}
+      </select>
+    </div>`
+  ).join('');
+
+  // Preview table
+  const previewCols = Object.keys(previewRows[0] || {}).slice(0, 5);
+  const tableHtml = `
+    <div style="overflow-x:auto;margin-bottom:12px">
+      <table class="import-preview-table">
+        <thead><tr>${previewCols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+        <tbody>${previewRows.map(row =>
+          `<tr>${previewCols.map(c => `<td>${row[c] || ''}</td>`).join('')}</tr>`
+        ).join('')}</tbody>
+      </table>
+    </div>`;
+
+  area.innerHTML =
+    `<div style="background:var(--green-50,#f0fdf4);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--green-700,#065f46)">
+      <strong>${total} righe trovate</strong> — prime 5 mostrate
+    </div>` +
+    tableHtml +
+    `<div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px">MAPPATURA COLONNE</div>` +
+    mappingHtml;
+
+  if (btnImport) {
+    btnImport.classList.toggle('hidden', !hasName);
+    btnImport.textContent = `Importa ${total} clienti`;
+  }
+}
+
+function updateImportMapping(field, colName) {
+  _importMapping[field] = colName || null;
+  const btnImport = el('btn-do-import');
+  if (btnImport) btnImport.classList.toggle('hidden', !_importMapping.name);
+}
+
+async function doImportCSV() {
+  if (!_importParsed?.length || !_importMapping.name) return;
+  const limit = planLimits().clients;
+
+  // Conta clienti esistenti
+  const { count: existing } = await db.from('clients')
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', state.org.id);
+
+  const toImport = _importParsed.length;
+  if (limit < 9999 && (existing || 0) + toImport > limit) {
+    showUpgradeModal(
+      `Puoi importare al massimo <strong>${limit - (existing || 0)}</strong> clienti con il piano attuale. ` +
+      `Stai cercando di importarne <strong>${toImport}</strong>.`
+    );
+    return;
+  }
+
+  const btnImport = el('btn-do-import');
+  const resultArea = el('import-result-area');
+  if (btnImport) btnImport.disabled = true;
+
+  // Progress bar
+  if (resultArea) resultArea.innerHTML =
+    '<div style="font-size:13px;color:var(--gray-600);margin-bottom:6px" id="import-progress-label">Importazione in corso...</div>' +
+    '<div class="import-progress"><div class="import-progress-fill" id="import-progress-fill" style="width:0%"></div></div>';
+
+  const get = (row, field) => {
+    const col = _importMapping[field];
+    return col ? (row[col] || '').toString().trim() || null : null;
+  };
+
+  const BATCH = 20;
+  let imported = 0, skipped = 0;
+
+  for (let i = 0; i < _importParsed.length; i += BATCH) {
+    const batch = _importParsed.slice(i, i + BATCH);
+    const rows = batch
+      .filter(row => get(row, 'name'))
+      .map(row => {
+        const rawCat = (get(row, 'category') || '').toLowerCase();
+        const category = Object.entries(CATEGORY_MAP).find(([k]) => rawCat.includes(k))?.[1] || 'commerciale';
+        return {
+          organization_id: state.org.id,
+          name:         get(row, 'name'),
+          address:      get(row, 'address'),
+          city:         get(row, 'city'),
+          province:     get(row, 'province'),
+          phone:        get(row, 'phone'),
+          email:        get(row, 'email'),
+          contact_name: get(row, 'contact_name'),
+          category,
+          active: true,
+        };
+      });
+
+    skipped += batch.length - rows.length;
+    if (rows.length) {
+      const { error } = await db.from('clients').insert(rows);
+      if (!error) imported += rows.length;
+      else skipped += rows.length;
+    }
+
+    const pct = Math.round(((i + BATCH) / _importParsed.length) * 100);
+    const fillEl = el('import-progress-fill');
+    const lblEl  = el('import-progress-label');
+    if (fillEl) fillEl.style.width = Math.min(pct, 100) + '%';
+    if (lblEl)  lblEl.textContent = `Importazione in corso... ${Math.min(i + BATCH, _importParsed.length)}/${_importParsed.length}`;
+  }
+
+  // Risultato finale
+  if (resultArea) resultArea.innerHTML =
+    `<div style="background:${imported > 0 ? 'var(--green-50,#f0fdf4)' : '#fff5f5'};border-radius:8px;padding:12px 14px;margin-top:4px">
+      <div style="font-size:14px;font-weight:700;color:${imported > 0 ? 'var(--green-700,#065f46)' : 'var(--red)'}">
+        ${imported > 0 ? '✓ ' + imported + ' clienti importati' : '✗ Nessun cliente importato'}
+        ${skipped > 0 ? ` · ${skipped} righe saltate (nome mancante o errore)` : ''}
+      </div>
+    </div>`;
+
+  if (btnImport) { btnImport.disabled = false; btnImport.classList.add('hidden'); }
+  if (imported > 0) {
+    await loadClienti();
+    showToast(imported + ' clienti importati', 'success');
+  }
 }
