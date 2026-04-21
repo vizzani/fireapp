@@ -111,6 +111,25 @@ a{color:inherit;text-decoration:none}
   .page{flex-direction:column}
 }
 </style>
+
+<!-- Iubenda Privacy Policy — sostituisci XXXXXXXX con il tuo Policy ID -->
+<script type="text/javascript">
+  var _iub = _iub || [];
+  _iub.csConfiguration = {
+    "askConsentAtCookiePolicyUpdate": true,
+    "lang": "it",
+    "perPurposeConsent": true,
+    "siteId": 0000000, // ← sostituisci con il tuo Site ID iubenda
+    "cookiePolicyId": 0000000, // ← sostituisci con il tuo Policy ID
+    "banner": {
+      "acceptButtonDisplay": true,
+      "closeButtonRejects": true,
+      "position": "bottom"
+    }
+  };
+</script>
+<script type="text/javascript" src="https://cs.iubenda.com/autoblocking/0000000.js"></script>
+<script type="text/javascript" src="//cdn.iubenda.com/cs/iubenda_cs.js" charset="UTF-8" async></script>
 </head>
 <body>
 
@@ -211,7 +230,20 @@ a{color:inherit;text-decoration:none}
 
           <div class="terms">
             <input type="checkbox" id="f-terms" required>
-            <label for="f-terms">Accetto i <a href="#">Termini di servizio</a> e la <a href="#">Privacy Policy</a>. I dati inseriti saranno trattati per la gestione del servizio.</label>
+            <label for="f-terms">
+              Ho letto e accetto i <a href="/termini.html" target="_blank">Termini di servizio</a>
+              e la <a href="https://www.iubenda.com/privacy-policy/XXXXXXXX" target="_blank" class="iubenda-nostyle iubenda-noiframe">Privacy Policy</a>.
+              I dati inseriti saranno trattati da FireApp in qualità di titolare del trattamento
+              ai sensi del Regolamento UE 2016/679 (GDPR).
+            </label>
+          </div>
+          <div class="terms" style="margin-top:-10px">
+            <input type="checkbox" id="f-dpa" required>
+            <label for="f-dpa">
+              In qualità di titolare del trattamento per i dati dei miei clienti, accetto le
+              <a href="/dpa.html" target="_blank">Condizioni di responsabile del trattamento</a>
+              (DPA) ai sensi dell'art. 28 GDPR.
+            </label>
           </div>
 
           <button type="submit" class="btn-submit" id="btn-signup">
@@ -251,22 +283,6 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const { createClient } = window.supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Controlla se è un link di invito (?join=org_id)
-const JOIN_ORG_ID = new URLSearchParams(location.search).get('join');
-const IS_JOIN_MODE = !!JOIN_ORG_ID;
-
-// In modalità invito: nasconde il campo azienda e mostra banner
-if (IS_JOIN_MODE) {
-  document.addEventListener('DOMContentLoaded', () => {
-    const companyField = document.getElementById('f-company')?.closest('.field');
-    if (companyField) companyField.style.display = 'none';
-    const sub = document.querySelector('.form-sub');
-    if (sub) sub.innerHTML = '<span style="background:#e1f5ee;color:#065f46;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;display:inline-block;margin-bottom:4px">Stai per unirti a un team FireApp come tecnico</span><br>Hai già un account? <a href="/index.html">Accedi</a>';
-    const formTitle = document.querySelector('.form-title');
-    if (formTitle) formTitle.textContent = 'Crea il tuo account';
-  });
-}
-
 // Password strength
 function checkPwd(v) {
   const fill = document.getElementById('pwd-strength-fill');
@@ -291,26 +307,26 @@ function togglePwd() {
 function validate() {
   let ok = true;
   const rules = [
+    ['f-company',   'err-company',   v => v.trim().length > 1],
     ['f-firstname', 'err-firstname', v => v.trim().length > 0],
     ['f-lastname',  'err-lastname',  v => v.trim().length > 0],
     ['f-email',     'err-email',     v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)],
     ['f-password',  'err-password',  v => v.length >= 8],
   ];
-  // Campo azienda obbligatorio solo se non è join mode
-  if (!IS_JOIN_MODE) {
-    rules.unshift(['f-company', 'err-company', v => v.trim().length > 1]);
-  }
   rules.forEach(([fid, eid, fn]) => {
     const field = document.getElementById(fid);
     const err   = document.getElementById(eid);
-    if (!field) return;
     const valid = fn(field.value);
     field.classList.toggle('error', !valid);
-    err?.classList.toggle('visible', !valid);
+    err.classList.toggle('visible', !valid);
     if (!valid) ok = false;
   });
   if (!document.getElementById('f-terms').checked) {
-    showError('Devi accettare i termini di servizio per continuare.');
+    showError('Devi accettare i termini di servizio e la privacy policy per continuare.');
+    ok = false;
+  }
+  if (!document.getElementById('f-dpa')?.checked) {
+    showError('Devi accettare le condizioni DPA per continuare.');
     ok = false;
   }
   return ok;
@@ -333,7 +349,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
   if (!validate()) return;
 
   const btn       = document.getElementById('btn-signup');
-  const company   = document.getElementById('f-company')?.value.trim() || '';
+  const company   = document.getElementById('f-company').value.trim();
   const firstname = document.getElementById('f-firstname').value.trim();
   const lastname  = document.getElementById('f-lastname').value.trim();
   const email     = document.getElementById('f-email').value.trim();
@@ -362,53 +378,28 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
       return;
     }
 
-    const userId = authData.user.id;
+    // 2. Crea organizzazione e collega il profilo
+    const { data: setupData, error: setupError } = await db.rpc('setup_new_organization', {
+      p_org_name:  company,
+      p_full_name: fullName,
+      p_user_id:   authData.user.id,
+    });
 
-    if (IS_JOIN_MODE) {
-      // 2a. MODALITÀ INVITO: collega il profilo all'organizzazione esistente come tecnico
-      const { data: joinData, error: joinError } = await db.rpc('join_organization', {
-        p_org_id:    JOIN_ORG_ID,
-        p_full_name: fullName,
-        p_user_id:   userId,
-      });
+    if (setupError) {
+      showError('Account creato ma configurazione incompleta. Contatta il supporto.');
+      console.error('Setup error:', setupError);
+      return;
+    }
 
-      if (joinError) {
-        showError('Account creato ma collegamento al team fallito. Contatta il tuo admin.');
-        console.error('Join error:', joinError);
-        return;
-      }
-    } else {
-      // 2b. MODALITÀ NORMALE: crea organizzazione nuova
-      const { data: setupData, error: setupError } = await db.rpc('setup_new_organization', {
-        p_org_name:  company,
-        p_full_name: fullName,
-        p_user_id:   userId,
-      });
-
-      if (setupError) {
-        showError('Account creato ma configurazione incompleta. Contatta il supporto.');
-        console.error('Setup error:', setupError);
-        return;
-      }
-
-      const result = typeof setupData === 'string' ? JSON.parse(setupData) : setupData;
-      if (!result.success) {
-        showError(result.error || 'Errore nella configurazione.');
-        return;
-      }
+    const result = typeof setupData === 'string' ? JSON.parse(setupData) : setupData;
+    if (!result.success) {
+      showError(result.error || 'Errore nella configurazione.');
+      return;
     }
 
     // 3. Successo
     document.getElementById('form-view').style.display = 'none';
     document.getElementById('success-view').style.display = 'block';
-
-    // Personalizza messaggio per modalità invito
-    if (IS_JOIN_MODE) {
-      const successTitle = document.querySelector('#success-view h2');
-      const successSub   = document.querySelector('#success-view p');
-      if (successTitle) successTitle.textContent = 'Benvenuto nel team!';
-      if (successSub) successSub.textContent = 'Il tuo account è stato collegato al team. Puoi ora accedere a FireApp.';
-    }
 
   } catch (err) {
     showError('Errore imprevisto. Riprova tra qualche istante.');
