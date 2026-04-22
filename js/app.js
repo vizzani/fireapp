@@ -495,11 +495,17 @@ function renderTodayInterventions(interventions) {
   }
   cont.innerHTML = interventions.map(inv => {
     const tags = (inv.equipment_types || []).map(t => '<span class="badge badge-blue">' + (EQ_TYPE_LABELS[t] || t) + '</span>').join('');
+    const isCompleted = inv.status === 'completed' || inv.status === 'signed';
+    const completedHint = isCompleted
+      ? '<div style="display:flex;align-items:center;gap:5px;margin-top:8px;font-size:12px;color:var(--gray-400,#9ca3af)">' +
+        '<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+        'Tocca per aprire il verbale</div>'
+      : '';
     return '<div class="card" onclick="openIntervention(\'' + inv.id + '\')">' +
       '<div class="card-header"><div><div class="card-title">' + (inv.clients?.name || '—') + '</div>' +
       '<div class="card-sub">' + (inv.clients?.city || '') + ' - ' + inv.type + '</div></div>' +
       statusBadge(inv.status) + '</div>' +
-      '<div class="card-tags">' + tags + '</div></div>';
+      '<div class="card-tags">' + tags + '</div>' + completedHint + '</div>';
   }).join('');
 }
 
@@ -591,12 +597,16 @@ function renderClientModal(client, equip, interventions) {
     : '<div style=\"font-size:13px;color:var(--gray-500);padding:8px 0\">Nessun impianto configurato</div>';
 
   const intervHtml = interventions.length
-    ? interventions.map(i =>
-        '<div class="row-item" onclick="closeModal();openIntervention(\'' + i.id + '\')">' +
-        '<div class="row-body"><div class="row-title">' + formatDate(i.date) + ' — ' + capitalize(i.type) + '</div>' +
-        '<div class="row-desc">n. ' + (i.report_number || 'Bozza') + '</div></div>' +
-        statusBadge(i.outcome || i.status) + '</div>'
-      ).join('')
+    ? interventions.map(i => {
+        const isCompleted = i.status === 'completed' || i.status === 'signed';
+        const hint = isCompleted
+          ? '<div style="font-size:11px;color:var(--gray-400,#9ca3af);margin-top:2px">Apri verbale →</div>'
+          : '';
+        return '<div class="row-item" onclick="closeModal();openIntervention(\'' + i.id + '\')">' +
+          '<div class="row-body"><div class="row-title">' + formatDate(i.date) + ' — ' + capitalize(i.type) + '</div>' +
+          '<div class="row-desc">n. ' + (i.report_number || 'Bozza') + '</div>' + hint + '</div>' +
+          statusBadge(i.outcome || i.status) + '</div>';
+      }).join('')
     : '<div style="padding:10px 0;font-size:13px;color:var(--gray-500)">Nessun intervento registrato</div>';
 
   const infoLine = [client.address, client.city, client.province].filter(Boolean).join(', ');
@@ -862,6 +872,16 @@ async function openIntervention(interventionId) {
   ]);
   showLoading(false);
   if (!inv) return;
+
+  // ── Intervento completato: apri direttamente il verbale ──
+  if (inv.status === 'completed' || inv.status === 'signed') {
+    closeModal();
+    navigate('verbali');
+    await loadVerbali();
+    showVerbaleDetail(interventionId);
+    return;
+  }
+
   state.currentInterventionType = inv.type;
   state.currentEquipmentTypes = inv.equipment_types || [];
   (responses || []).forEach(r => {
