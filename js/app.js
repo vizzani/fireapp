@@ -1,4 +1,12 @@
  /* FireApp app.js — build 2026-04-21-v2 */
+
+// ─── STILI DINAMICI ───────────────────────────────────────────────────────────
+(function injectStyles() {
+const s = document.createElement(‘style’);
+s.textContent = `.btn-lavora { display: inline-flex; align-items: center; gap: 6px; background: var(--green, #073524); color: white; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s, transform .1s; font-family: inherit; letter-spacing: .01em; } .btn-lavora:hover { background: var(--green-mid, #0d6040); transform: translateY(-1px); } .btn-lavora:active { transform: scale(.97); } .btn-lavora-sm { padding: 6px 12px; font-size: 12px; margin-top: 6px; }`;
+document.head.appendChild(s);
+})();
+
 /* FireApp — app.js — v1.1 */
 
 const SUPABASE_URL      = ‘https://bclfpawguqpwypahmzbk.supabase.co’;
@@ -461,16 +469,23 @@ return;
 cont.innerHTML = interventions.map(inv => {
 const tags = (inv.equipment_types || []).map(t => ‘<span class="badge badge-blue">’ + (EQ_TYPE_LABELS[t] || t) + ‘</span>’).join(’’);
 const isCompleted = inv.status === ‘completed’ || inv.status === ‘signed’;
+const isActive = inv.status === ‘draft’ || inv.status === ‘in_progress’;
 const completedHint = isCompleted
 ? ‘<div style="display:flex;align-items:center;gap:5px;margin-top:8px;font-size:12px;color:var(--gray-400,#9ca3af)">’ +
 ‘<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>’ +
 ‘Tocca per aprire il verbale</div>’
 : ‘’;
+const lavoraBtn = isActive
+? ‘<div style="margin-top:10px">’ +
+‘<button class="btn-lavora" onclick="event.stopPropagation();openIntervention(\'' + inv.id + '\')">’ +
+‘<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round"><polygon points="5 3 19 12 5 21 5 3"/></svg>’ +
+‘Lavora</button></div>’
+: ‘’;
 return ‘<div class="card" onclick="openIntervention(\'' + inv.id + '\')">’ +
 ‘<div class="card-header"><div><div class="card-title">’ + (inv.clients?.name || ‘—’) + ‘</div>’ +
 ‘<div class="card-sub">’ + (inv.clients?.city || ‘’) + ’ - ’ + inv.type + ‘</div></div>’ +
 statusBadge(inv.status) + ‘</div>’ +
-‘<div class="card-tags">’ + tags + ‘</div>’ + completedHint + ‘</div>’;
+‘<div class="card-tags">’ + tags + ‘</div>’ + completedHint + lavoraBtn + ‘</div>’;
 }).join(’’);
 }
 
@@ -564,12 +579,18 @@ return ‘<div class="equip-item">’ +
 const intervHtml = interventions.length
 ? interventions.map(i => {
 const isCompleted = i.status === ‘completed’ || i.status === ‘signed’;
+const isActive = i.status === ‘draft’ || i.status === ‘in_progress’;
 const hint = isCompleted
 ? ‘<div style="font-size:11px;color:var(--gray-400,#9ca3af);margin-top:2px">Apri verbale →</div>’
 : ‘’;
+const lavoraBtn = isActive
+? ‘<button class="btn-lavora btn-lavora-sm" onclick="event.stopPropagation();closeModal();openIntervention(\'' + i.id + '\')">’ +
+‘<svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round"><polygon points="5 3 19 12 5 21 5 3"/></svg>’ +
+‘Lavora</button>’
+: ‘’;
 return ‘<div class="row-item" onclick="closeModal();openIntervention(\'' + i.id + '\')">’ +
 ‘<div class="row-body"><div class="row-title">’ + formatDate(i.date) + ’ — ’ + capitalize(i.type) + ‘</div>’ +
-‘<div class="row-desc">n. ’ + (i.report_number || ‘Bozza’) + ‘</div>’ + hint + ‘</div>’ +
+‘<div class="row-desc">n. ’ + (i.report_number || ‘Bozza’) + ‘</div>’ + hint + lavoraBtn + ‘</div>’ +
 statusBadge(i.outcome || i.status) + ‘</div>’;
 }).join(’’)
 : ‘<div style="padding:10px 0;font-size:13px;color:var(--gray-500)">Nessun intervento registrato</div>’;
