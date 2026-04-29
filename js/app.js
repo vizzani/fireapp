@@ -33,8 +33,8 @@
 
 /* FireApp — app.js — v1.1 */
 
-const SUPABASE_URL      = 'https://bclfpawguqpwypahmzbk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjbGZwYXdndXFwd3lwYWhtemJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyOTI1NjQsImV4cCI6MjA5MTg2ODU2NH0.ONgZu-n7oWJaQJ7V6P3MOpBD9eUYA0YimGDHyi7DLcI';
+const SUPABASE_URL      = '';
+const SUPABASE_ANON_KEY = '';
 
 // ─── CHECKLISTS ────────────────────────────────────────────────────────────────
 const CHECKLISTS = {
