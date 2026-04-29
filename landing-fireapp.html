@@ -221,21 +221,10 @@ footer{background:var(--ink);padding:48px 0 32px}
   .hero-trust{flex-direction:column;align-items:flex-start;gap:12px}
 }
 </style>
-
-<!-- Iubenda — sostituisci gli ID dopo aver creato la policy su iubenda.com -->
-<script type="text/javascript">
-  var _iub = _iub || [];
-  _iub.csConfiguration = {
-    "lang": "it",
-    "siteId": 0000000,
-    "cookiePolicyId": 0000000,
-    "banner": { "acceptButtonDisplay": true, "closeButtonRejects": true, "position": "bottom" }
-  };
-</script>
-<script type="text/javascript" src="//cdn.iubenda.com/cs/iubenda_cs.js" charset="UTF-8" async></script>
 </head>
 <body>
 
+<!-- NAV -->
 <nav>
   <div class="nav-inner">
     <div class="nav-logo">
@@ -247,12 +236,12 @@ footer{background:var(--ink);padding:48px 0 32px}
     <div class="nav-links">
       <a href="#features">Funzionalità</a>
       <a href="#come-funziona">Come funziona</a>
-      <a href="#prezzi">Prezzi</a>
     </div>
-    <a href="signup.html" class="nav-cta">Prova gratis 30 giorni</a>
+    <a href="mailto:matteo@vizzani.it" class="nav-cta">Contattaci</a>
   </div>
 </nav>
 
+<!-- HERO -->
 <section class="hero">
   <div class="container">
     <div class="hero-grid">
@@ -261,9 +250,9 @@ footer{background:var(--ink);padding:48px 0 32px}
         <h1>Verbali conformi.<br><em>In 30 secondi.</em></h1>
         <p class="hero-desc">Smetti di compilare carte a mano. FireApp genera verbali di manutenzione conformi a UNI 9994-1, UNI 10779 e UNI 9795 direttamente dal cantiere, anche offline.</p>
         <div class="hero-actions">
-          <a href="signup.html" class="btn-hero">Inizia gratis — 30 giorni</a>
-          <a href="/tour.html" class="btn-ghost">
-            Scopri come funziona →
+          <a href="#come-funziona" class="btn-ghost">
+            Come funziona
+            <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
           </a>
         </div>
         <div class="hero-trust">
@@ -272,10 +261,12 @@ footer{background:var(--ink);padding:48px 0 32px}
             <div class="trust-item"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>D.M. 37/2008</div>
             <div class="trust-item"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>D.Lgs 81/2008</div>
             <div class="trust-item"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>UNI EN 54</div>
+            <div class="trust-item"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>UNI 11988:2025</div>
           </div>
         </div>
       </div>
 
+      <!-- MOCKUP APP -->
       <div class="hero-mockup">
         <div class="mockup-phone">
           <div class="mockup-bar">
@@ -313,6 +304,7 @@ footer{background:var(--ink);padding:48px 0 32px}
   </div>
 </section>
 
+<!-- NORME BAR -->
 <div class="norme-bar">
   <div class="norme-inner">
     <div class="norme-label">Checklist integrate per:</div>
@@ -321,12 +313,14 @@ footer{background:var(--ink);padding:48px 0 32px}
     <div class="norm-pill">UNI 9795</div>
     <div class="norm-pill">UNI EN 54-16</div>
     <div class="norm-pill">UNI ISO 7240-19</div>
+    <div class="norm-pill">UNI 11988:2025</div>
     <div class="norm-pill">UNI 11473</div>
     <div class="norm-pill">D.Lgs 81/2008</div>
     <div class="norm-pill">D.M. 37/2008</div>
   </div>
 </div>
 
+<!-- PROBLEMA -->
 <section class="section">
   <div class="container">
     <div class="section-label">Il problema</div>
@@ -358,6 +352,7 @@ footer{background:var(--ink);padding:48px 0 32px}
   </div>
 </section>
 
+<!-- FEATURES -->
 <section class="section" id="features" style="background:var(--bg)">
   <div class="container">
     <div class="section-label">Funzionalità</div>
@@ -386,6 +381,7 @@ footer{background:var(--ink);padding:48px 0 32px}
           <span class="norm-tag">UNI 10779</span>
           <span class="norm-tag">UNI 9795</span>
           <span class="norm-tag">UNI EN 54-16</span>
+          <span class="norm-tag">UNI 11988:2025</span>
         </div>
       </div>
       <div class="feature-card">
@@ -413,6 +409,7 @@ footer{background:var(--ink);padding:48px 0 32px}
   </div>
 </section>
 
+<!-- COME FUNZIONA -->
 <section class="section how-bg" id="come-funziona">
   <div class="container">
     <div class="section-label">Come funziona</div>
@@ -442,115 +439,19 @@ footer{background:var(--ink);padding:48px 0 32px}
   </div>
 </section>
 
-<section class="section" id="prezzi">
-  <div class="container">
-    <div style="text-align:center">
-      <div class="section-label" style="display:inline-block">Prezzi</div>
-      <h2>Semplice e trasparente</h2>
-      <p class="section-desc" style="margin:0 auto">30 giorni di prova gratuita, nessuna carta di credito richiesta. Disdici quando vuoi.</p>
-    </div>
-    <div class="pricing-grid">
 
-      <div class="price-card">
-        <div class="price-plan">Starter</div>
-        <div class="price-val"><sup>€</sup>29</div>
-        <div class="price-period">al mese + IVA</div>
-        <div class="price-sub">Per freelance e piccole imprese</div>
-        <ul class="price-features">
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Fino a 2 tecnici</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Fino a 50 clienti</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Checklist illimitate</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Verbali PDF</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Scadenzario automatico</li>
-          <li class="dimmed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Logo aziendale sul PDF</li>
-          <li class="dimmed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Multi-sede</li>
-        </ul>
-        <a href="signup.html" class="btn-price">Prova gratis 30 giorni</a>
-      </div>
-
-      <div class="price-card popular">
-        <div class="popular-badge">Più scelto</div>
-        <div class="price-plan">Pro</div>
-        <div class="price-val"><sup>€</sup>59</div>
-        <div class="price-period">al mese + IVA</div>
-        <div class="price-sub">Per aziende in crescita</div>
-        <ul class="price-features">
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Tecnici illimitati</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Clienti illimitati</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Checklist illimitate</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Verbali PDF con logo</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Scadenzario automatico</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Logo aziendale sul PDF</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Supporto prioritario</li>
-        </ul>
-        <a href="signup.html" class="btn-price btn-price-primary">Prova gratis 30 giorni</a>
-      </div>
-
-      <div class="price-card">
-        <div class="price-plan">Agenzia</div>
-        <div class="price-val"><sup>€</sup>120</div>
-        <div class="price-period">al mese + IVA</div>
-        <div class="price-sub">Per strutture con più sedi</div>
-        <ul class="price-features">
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Tutto del piano Pro</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Rendicontazione multi-sede</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Dashboard direzionale</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Export dati CSV/Excel</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Onboarding dedicato</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Supporto telefonico</li>
-          <li><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Personalizzazioni</li>
-        </ul>
-        <a href="mailto:info@fireapp.it" class="btn-price">Contattaci</a>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<section class="section-sm" style="background:var(--bg)">
-  <div class="container">
-    <div class="section-label">Chi la usa</div>
-    <h2>Lo dicono i manutentori</h2>
-    <div class="testi-grid">
-      <div class="testi-card">
-        <div class="testi-stars"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
-        <p class="testi-text">"Prima ci mettevo mezz'ora a compilare un verbale. Adesso premo un tasto e il PDF è già pronto mentre sto ancora dal cliente. Non tornerei mai indietro."</p>
-        <div class="testi-author">
-          <div class="testi-avatar">MR</div>
-          <div><div class="testi-name">Marco R.</div><div class="testi-role">Tecnico antincendio, Abruzzo</div></div>
-        </div>
-      </div>
-      <div class="testi-card">
-        <div class="testi-stars"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
-        <p class="testi-text">"Avevo perso un cliente perché avevo saltato una scadenza senza accorgermene. Con lo scadenzario automatico non mi è più capitato. Vale già solo per questo."</p>
-        <div class="testi-author">
-          <div class="testi-avatar">GL</div>
-          <div><div class="testi-name">Giorgio L.</div><div class="testi-role">Titolare, Sicurezza Antincendio Srl</div></div>
-        </div>
-      </div>
-      <div class="testi-card">
-        <div class="testi-stars"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
-        <p class="testi-text">"I miei tecnici erano scettici all'inizio. Dopo una settimana nessuno voleva più tornare ai fogli di carta. La semplicità fa la differenza sul campo."</p>
-        <div class="testi-author">
-          <div class="testi-avatar">AS</div>
-          <div><div class="testi-name">Anna S.</div><div class="testi-role">Responsabile operativa, Lazio</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
+<!-- CTA FINALE -->
 <section class="cta-section">
   <div class="container">
-    <h2>Pronto a eliminare la carta?</h2>
-    <p>Inizia gratis oggi. 30 giorni senza limiti, nessuna carta di credito richiesta.</p>
+    <h2>Scopri FireApp</h2>
     <div class="cta-actions">
-      <a href="signup.html" class="btn-cta-white">Inizia gratis — 30 giorni</a>
+      <a href="mailto:matteo@vizzani.it" class="btn-cta-white">Contattaci</a>
     </div>
-    <div class="cta-note">Nessun vincolo · Disdici quando vuoi · Supporto via email incluso</div>
+
   </div>
 </section>
 
+<!-- FOOTER -->
 <footer>
   <div class="container">
     <div class="footer-inner">
@@ -567,7 +468,6 @@ footer{background:var(--ink);padding:48px 0 32px}
         <div class="footer-col-title">Prodotto</div>
         <div class="footer-links">
           <a href="#features">Funzionalità</a>
-          <a href="#prezzi">Prezzi</a>
           <a href="#come-funziona">Come funziona</a>
         </div>
       </div>
@@ -578,12 +478,13 @@ footer{background:var(--ink);padding:48px 0 32px}
           <a href="#">UNI 10779 Idranti</a>
           <a href="#">UNI 9795 IRAI</a>
           <a href="#">UNI EN 54-16 EVAC</a>
+          <a href="#">UNI 11988:2025 EVAC</a>
         </div>
       </div>
     </div>
     <div class="footer-bottom">
-      <div class="footer-copy">© 2026 FireApp · Sviluppato da <strong style="color:rgba(255,255,255,.45)">Matteo Vizzani</strong> · RemaTarlazzi SpA · <a href="https://www.iubenda.com/privacy-policy/XXXXXXXX" target="_blank" class="iubenda-nostyle" style="color:rgba(255,255,255,.3);text-decoration:none">Privacy Policy</a> · <a href="/termini.html" style="color:rgba(255,255,255,.3);text-decoration:none">Termini</a> · <a href="/dpa.html" style="color:rgba(255,255,255,.3);text-decoration:none">DPA</a></div>
-      <div class="footer-norms">Conforme a D.M. 37/2008 · D.Lgs 81/2008 · UNI EN 54</div>
+      <div class="footer-copy">© 2026 FireApp</div>
+      <div class="footer-norms">Conforme a D.M. 37/2008 · D.Lgs 81/2008 · UNI EN 54 · UNI 11988:2025</div>
     </div>
   </div>
 </footer>
